@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ spot.name }} · 景点详情{% endblock %}
+{% block content %}
+<section class="detail-hero">
+  <div><small>DESTINATION DETAIL · {{ "%02d"|format(spot.id) }}</small><h1>{{ spot.name }}</h1><p>{{ spot.province }} · {{ spot.city }}</p></div>
+</section>
+<section class="detail-layout">
+  <article>
+    <span class="label">景点简介</span><h2>在这里，遇见不一样的风景</h2><p>{{ spot.introduction }}</p>
+    <div class="detail-tags">
+      {% for tag in split_tags(spot.season) %}<span>{{ tag }}</span>{% endfor %}
+      {% for tag in split_tags(spot.style_type) %}<span>{{ tag }}</span>{% endfor %}
+    </div>
+  </article>
+  <aside class="detail-side">
+    {% if record %}
+      <div class="score-circle"><strong>{{ record.match_score }}</strong><span>匹配度</span></div>
+      <h3>推荐理由</h3><p>{{ record.recommend_reason }}</p>
+    {% else %}
+      <h3>适合怎样的旅行？</h3><p>适合季节：{{ spot.season }}<br>预算范围：{{ spot.budget_level }}<br>建议天数：{{ spot.play_days }}<br>适合人群：{{ spot.suitable_people }}</p>
+    {% endif %}
+    {% if current_user %}
+      <form action="{{ url_for('toggle_favorite', spot_id=spot.id) }}" method="post">
+        <input type="hidden" name="next" value="{{ request.path }}">
+        <button class="favorite-detail-btn {{ 'saved' if is_favorite }}" type="submit">{{ "已收藏 · 点击取消" if is_favorite else "收藏这个景点" }}</button>
+      </form>
+    {% else %}
+      <a class="favorite-detail-btn" href="{{ url_for('login', next=request.path) }}">登录后收藏</a>
+    {% endif %}
+    <a class="primary-btn wide" href="{{ url_for('recommend') }}">用我的偏好重新匹配</a>
+  </aside>
+</section>
+
+<section class="comment-section">
+  <div class="comment-head"><div><span class="label">TRAVEL COMMENTS</span><h2>旅行评论</h2></div><strong>{{ comments|length }} 条</strong></div>
+  {% if current_user %}
+    <form class="comment-form" action="{{ url_for('add_comment', spot_id=spot.id) }}" method="post">
+      <div class="comment-avatar">{{ current_user.username[:1] }}</div>
+      <label><span>{{ current_user.username }}</span><textarea name="content" minlength="2" maxlength="300" required placeholder="分享你对这个景点的看法或旅行建议……"></textarea><small>2–300 字</small></label>
+      <button class="primary-btn" type="submit">发表评论</button>
+    </form>
+  {% else %}
+    <div class="comment-login-tip">登录后即可发表评论。<a href="{{ url_for('login', next=request.path) }}">前往登录 →</a></div>
+  {% endif %}
+  <div class="comment-list">
+    {% for comment in comments %}
+      <article><span class="comment-avatar">{{ comment.username[:1] }}</span><div><header><strong>{{ comment.username }}</strong><time>{{ comment.create_time[:16] }}</time></header><p>{{ comment.content }}</p></div></article>
+    {% else %}
+      <div class="profile-empty">还没有评论，来成为第一位分享者吧。</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

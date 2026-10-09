@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}管理后台 · 四季旅游推荐系统{% endblock %}
+{% block content %}
+<section class="admin-head"><div><small>ADMIN CONTROL CENTER</small><h1>管理后台</h1><p>管理员 {{ current_user.username }} · 查看系统数据并维护景点与评论。</p></div></section>
+
+<section class="admin-dashboard">
+  <div class="admin-stats">
+    <article><span>SCENIC SPOTS</span><strong>{{ stats.spots }}</strong><p>景点数据</p></article>
+    <article><span>REGISTERED USERS</span><strong>{{ stats.users }}</strong><p>普通用户</p></article>
+    <article><span>COMMENTS</span><strong>{{ stats.comments }}</strong><p>用户评论</p></article>
+    <article><span>RECOMMENDATIONS</span><strong>{{ stats.recommendations }}</strong><p>推荐记录</p></article>
+  </div>
+
+  <div class="admin-private-grid">
+    <section class="admin-data-card">
+      <header><div><span>USER DATA</span><h2>用户数据</h2></div><small>仅管理员可见</small></header>
+      <div class="admin-table-wrap">
+        <table>
+          <thead><tr><th>用户</th><th>角色</th><th>收藏</th><th>浏览</th><th>评论</th><th>注册时间</th></tr></thead>
+          <tbody>
+            {% for user in users %}
+              <tr><td><strong>{{ user.username }}</strong></td><td><i class="role-badge {{ user.role }}">{{ "管理员" if user.role == "admin" else "普通用户" }}</i></td><td>{{ user.favorite_count }}</td><td>{{ user.history_count }}</td><td>{{ user.comment_count }}</td><td>{{ user.create_time[:10] }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-data-card">
+      <header><div><span>RECENT COMMENTS</span><h2>评论管理</h2></div><small>最近 20 条</small></header>
+      <div class="admin-comment-list">
+        {% for comment in recent_comments %}
+          <article><div><strong>{{ comment.username }}</strong><span>评论了 {{ comment.spot_name }}</span><time>{{ comment.create_time[:16] }}</time></div><p>{{ comment.content }}</p><form action="{{ url_for('admin_delete_comment', comment_id=comment.id) }}" method="post" onsubmit="return confirm('确定删除这条评论吗？')"><button type="submit">删除</button></form></article>
+        {% else %}
+          <div class="profile-empty compact">暂无评论数据。</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <section class="admin-data-card preference-data-card">
+    <header><div><span>PREFERENCE DATA</span><h2>最近偏好记录</h2></div><small>最近 10 条</small></header>
+    <div class="preference-records">
+      {% for pref in recent_preferences %}
+        <div><span>#{{ pref.id }}</span><strong>{{ pref.season }} · {{ pref.style_type }}</strong><p>{{ pref.budget_level }} / {{ pref.play_days }} / {{ pref.people_type }}</p><time>{{ pref.create_time[:16] }}</time></div>
+      {% else %}<div class="profile-empty compact">暂无推荐偏好记录。</div>{% endfor %}
+    </div>
+  </section>
+</section>
+
+<section class="admin-layout">
+  <form class="admin-form" action="{{ url_for('admin_add') }}" method="post">
+    <h2>新增景点</h2>
+    <div class="form-grid">
+      <label>景点名称<input name="name" required></label><label>省份<input name="province" required></label><label>城市<input name="city" required></label>
+      <label>适合季节<input name="season" placeholder="春季,秋季" required></label><label>景点风格<input name="style_type" placeholder="古韵文化,摄影人文" required></label>
+      <label>预算范围<input name="budget_level" placeholder="中等预算" required></label><label>建议天数<input name="play_days" placeholder="2-3天" required></label>
+      <label>适合人群<input name="suitable_people" placeholder="情侣,家庭" required></label>
+      <label class="full">景点简介<textarea name="introduction" required></textarea></label>
+    </div>
+    <button class="primary-btn wide" type="submit">保存景点</button>
+  </form>
+
+  <div class="admin-list">
+    <h2>全部景点</h2>
+    {% for spot in spots %}
+      <details class="admin-item">
+        <summary><span><b>#{{ spot.id }}</b><strong>{{ spot.name }}</strong><small>{{ spot.city }} · {{ spot.season }}</small></span><em>编辑</em></summary>
+        <form action="{{ url_for('admin_edit', spot_id=spot.id) }}" method="post" class="edit-form">
+          <div class="form-grid">
+            {% for field, label in [('name','景点名称'),('province','省份'),('city','城市'),('season','适合季节'),('style_type','景点风格'),('budget_level','预算范围'),('play_days','建议天数'),('suitable_people','适合人群')] %}
+              <label>{{ label }}<input name="{{ field }}" value="{{ spot[field] }}" required></label>
+            {% endfor %}
+            <label class="full">景点简介<textarea name="introduction" required>{{ spot.introduction }}</textarea></label>
+          </div>
+          <button class="secondary-btn" type="submit">保存修改</button>
+        </form>
+        <form action="{{ url_for('admin_delete', spot_id=spot.id) }}" method="post" onsubmit="return confirm('确定删除“{{ spot.name }}”吗？')">
+          <button class="danger-btn" type="submit">删除景点</button>
+        </form>
+      </details>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

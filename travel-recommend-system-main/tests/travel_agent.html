@@ -1,0 +1,1843 @@
+
+{% extends "base.html" %}
+
+{% block title %}旅蛙规划 · 四季旅游推荐系统{% endblock %}
+
+{% block scripts %}
+  <!-- Markdown 渲染（本地文件，避免 CDN 问题） -->
+  <script src="{{ url_for('static', filename='marked.min.js') }}"></script>
+  <!-- 高德地图 JS SDK + 异步加载所有插件 -->
+  <script src="https://webapi.amap.com/maps?v=2.0&key=fc27a0f78a84236700aaee1a2ae905f2"></script>
+  <script>
+    console.log('[DEBUG] marked loaded:', typeof marked !== 'undefined');
+    // AMap 2.0 异步加载插件
+    if (typeof AMap !== 'undefined') {
+      AMap.plugin(['AMap.Geocoder', 'AMap.PlaceSearch', 'AMap.GeometryUtil'], function() {
+        console.log('[DEBUG] AMap plugins loaded: Geocoder, PlaceSearch, GeometryUtil');
+        window._amapReady = true;
+      });
+    } else {
+      console.error('[DEBUG] AMap not defined! 地图 SDK 加载失败');
+    }
+  </script>
+{% endblock %}
+
+{% block content %}
+
+<section class="sub-hero">
+
+  <small>TRAVEL AGENT</small>
+
+  <h1>🐸 让旅蛙帮你规划</h1>
+
+  <p>
+    已确定目的地：
+    <strong>{{ city }}</strong>
+  </p>
+
+</section>
+
+<!-- 城市概览地图 -->
+<section style="max-width:1120px;margin:0 auto 24px;padding:0 20px;">
+  <div style="font-weight:600;font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+    <span>🗺️</span> {{ city }}城市概览
+  </div>
+  <div id="city-overview-map" style="height:340px;border-radius:12px;overflow:hidden;border:1px solid #e0e0e0;"></div>
+</section>
+
+<section class="recommend-layout">
+
+  <!-- =========================================================
+       左侧：用户当前需求
+       ========================================================= -->
+
+  <aside>
+
+    <span>YOUR TRAVEL PROFILE</span>
+
+    <h2>你的旅行需求</h2>
+
+    <p>
+      旅蛙将根据你的旅游偏好，
+      进一步理解你的实际需求并生成旅行计划。
+    </p>
+
+    <div class="weight-list">
+
+      <b>
+        出游季节
+        <i>{{ preference.season }}</i>
+      </b>
+
+      <b>
+        旅行风格
+        <i>{{ preference.style_type }}</i>
+      </b>
+
+      <b>
+        预算
+        <i>{{ preference.budget_level }}</i>
+      </b>
+
+      <b>
+        出游天数
+        <i>{{ preference.play_days }}</i>
+      </b>
+
+      <b>
+        出游人群
+        <i>{{ preference.people_type }}</i>
+      </b>
+
+    </div>
+
+  </aside>
+
+  <!-- =========================================================
+       右侧：旅蛙 Agent
+       ========================================================= -->
+
+  <section class="results-grid">
+
+    <article class="recommend-card">
+
+      <div class="card-body">
+
+        <h2>
+          {{ city }}旅行规划
+        </h2>
+
+        <p class="muted">
+          当前城市共有 {{ spots|length }} 个景点进入你的候选范围。
+        </p>
+
+        <!-- =====================================================
+             旅蛙说明
+             ===================================================== -->
+
+        <div class="recommend-reason">
+
+          <strong>
+            旅蛙接下来会做什么？
+          </strong>
+
+          <p>
+            旅蛙 Agent 将结合你的出游时间、
+            预算、旅行风格、同行人群以及
+            {{ city }} 的景点信息，
+            进一步规划适合你的旅行方案。
+          </p>
+
+        </div>
+
+        <!-- =====================================================
+             当前目的地信息
+             ===================================================== -->
+
+        <div class="spot-info">
+
+          <p>
+            <span>目的地</span>
+            {{ city }}
+          </p>
+
+          <p>
+            <span>景点数量</span>
+            {{ spots|length }}
+          </p>
+
+          <p>
+            <span>旅行风格</span>
+            {{ preference.style_type }}
+          </p>
+
+        </div>
+
+        <!-- =====================================================
+             用户额外需求
+             ===================================================== -->
+
+        <div style="margin-top: 24px;">
+
+          <label
+            for="travel-message"
+            style="
+              display: block;
+              font-weight: 600;
+              margin-bottom: 10px;
+            "
+          >
+            告诉旅蛙你的其他要求
+          </label>
+
+          <textarea
+            id="travel-message"
+            rows="5"
+            placeholder="例如：节奏慢一点，多安排古建筑和美食；预算控制在1000元以内；不想走太累的路线……"
+            style="
+              width: 100%;
+              box-sizing: border-box;
+              padding: 14px;
+              border: 1px solid #ddd;
+              border-radius: 10px;
+              resize: vertical;
+              font-size: 14px;
+              line-height: 1.6;
+            "
+          ></textarea>
+
+        </div>
+
+        <!-- =====================================================
+             操作按钮
+             ===================================================== -->
+
+        <div class="card-actions">
+
+          <button
+            id="start-plan-btn"
+            class="primary-btn wide"
+            type="button"
+            onclick="startTravelPlan()"
+          >
+            🐸 开始规划旅行 →
+          </button>
+
+        </div>
+
+        <!-- =====================================================
+             Loading
+             ===================================================== -->
+
+        <div
+          id="travel-loading"
+          style="
+            display: none;
+            margin-top: 24px;
+            padding: 18px;
+            border-radius: 10px;
+            background: #f5f7fa;
+            text-align: center;
+          "
+        >
+
+          <div style="font-size: 28px; margin-bottom: 8px;">
+            🐸
+          </div>
+
+          <strong>
+            旅蛙正在为你规划旅行……
+          </strong>
+
+          <p
+            class="muted"
+            style="margin-top: 8px;"
+          >
+            正在分析你的需求，并调用 NanoClaw Agent 生成旅行攻略。
+          </p>
+
+        </div>
+
+        <!-- =====================================================
+             错误信息
+             ===================================================== -->
+
+        <div
+          id="travel-error"
+          style="
+            display: none;
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 10px;
+            background: #fff1f0;
+            border: 1px solid #ffccc7;
+            color: #cf1322;
+          "
+        ></div>
+
+        <!-- =====================================================
+             旅行攻略结果
+             ===================================================== -->
+
+        <div
+          id="travel-result"
+          style="
+            display: none;
+            margin-top: 30px;
+          "
+        >
+
+          <div class="recommend-reason">
+
+            <strong>
+              🗺️ 旅蛙为你生成的旅行攻略
+            </strong>
+
+          </div>
+
+          <!-- Markdown 攻略正文 -->
+          <div
+            id="travel-plan-content"
+            style="
+              margin-top: 16px;
+              padding: 20px;
+              background: #fafafa;
+              border-radius: 12px;
+              line-height: 1.8;
+              word-break: break-word;
+            "
+          ></div>
+
+          <!-- 每日路线图和行程时间线将在 JS 中动态插入到对应 Day 标题后面 -->
+
+        </div>
+
+      </div>
+
+    </article>
+
+  </section>
+
+</section>
+
+<!-- =============================================================
+     将 Flask/Jinja 数据安全地传递给 JavaScript
+     ============================================================= -->
+
+<script id="travel-data" type="application/json">
+{
+  "session_key": {{ ("travel:" ~ session.get("user_id", "anonymous")) | tojson }},
+
+  "destination": {{ city | tojson }},
+
+  "preference": {{ preference | tojson }},
+
+  "spots": {{ spots | tojson }}
+}
+</script>
+
+<!-- =============================================================
+     JavaScript
+     ============================================================= -->
+
+<!-- =============================================================
+     地图辅助函数
+     ============================================================= -->
+<script>
+const DAY_COLORS = ['#d4a853', '#60a5fa', '#4ade80', '#f472b6', '#fbbf24', '#a78bfa', '#fb923c'];
+
+// 模块级共享数据（IIFE 和 startTravelPlan 都能访问）
+let travelData = null;
+
+let _cityMap = null;
+let _cityMarkers = [];
+const _dayMaps = [];        // 每日路线图实例数组
+const _dayPolylines = [];  // 平行清理数组
+const _dayMarkers = [];    // 平行清理数组
+const _poiCache = new Map(); // POI 缓存，避免重复搜索
+
+// 中文数字 → int
+function chineseNumToInt(str) {
+  const map = { '一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10 };
+  if (!str) return 0;
+  if (map[str]) return map[str];
+  // 十一、十二 等
+  if (str.length === 2 && str[0] === '十') return 10 + (map[str[1]] || 0);
+  if (str.length === 3 && str[0] === '十' && str[2] === '十') return 20;
+  return parseInt(str) || 0;
+}
+
+// 日期头检测 — 暴力全匹配，不依赖前后缀剥离的先后顺序
+// 匹配任何包含 "第N天" 或 "Day N" 或 "DAY N" 的行
+// 提取地名核心词：去掉活动前后缀，用于 POI 搜索与别名匹配
+function getCoreName(name) {
+  return (name || '')
+    .replace(/^(夜游|夜逛|漫步|散步|游览|参观|体验|打卡|逛|品尝)/, '')
+    .replace(/(漫步|夜游|夜逛|游览|观光|游玩|打卡|参观|体验|休闲|散步|游船|画舫|之行|之旅|深度游|深度|夜景|品茶|拍照)$/, '')
+    .trim();
+}
+
+function detectDayHeader(line) {
+  // 直接在原始行里搜（不剥任何东西），更可靠
+  // 模式 0（最优先）: 第 N 天 / 第N天 （N 是阿拉伯数字，必须是"第...天"完整格式）
+  // 放在中文数字模式之前，避免 "第 15 天" 被误匹配成 "1" (5 会被当作中文字符而忽略)
+  const m0 = line.match(/第\s*(\d+)\s*天/);
+  if (m0) {
+    console.log(`[DayHeader] MATCH(阿拉伯) line="${line.trim().substring(0,50)}" → Day ${m0[1]}`);
+    return parseInt(m0[1]);
+  }
+  // 模式 1: 第 N 天 / N天 （N 是中文数字）
+  const m1 = line.match(/(?:第\s*)?([一二三四五六七八九十]+)\s*天/);
+  if (m1) {
+    const num = chineseNumToInt(m1[1]);
+    if (num > 0) {
+      console.log(`[DayHeader] MATCH(中文) line="${line.trim().substring(0,50)}" → Day ${num}`);
+      return num;
+    }
+  }
+  // 模式 2: Day N / DAY N / D N （N 是阿拉伯数字）
+  const m2 = line.match(/(?:Day|D)\s*0*(\d+)/i);
+  if (m2) {
+    const num = parseInt(m2[1]);
+    console.log(`[DayHeader] MATCH(英文) line="${line.trim().substring(0,50)}" → Day ${num}`);
+    return num;
+  }
+  return 0;
+}
+
+function buildDayList(spotsFromDB, city, planText) {
+  
+  // ============================================================
+  // 方案C - 主路径：尝试从 AI 输出中提取结构化 JSON 景点清单
+  // ============================================================
+  function tryParseStructuredJSON(planText) {
+    const jsonBlockMatch = planText.match(/```(?:json|JSON)?\s*\n?([\s\S]*?)```/);
+    if (jsonBlockMatch) {
+      try {
+        const jsonStr = jsonBlockMatch[1].trim();
+        const parsed = JSON.parse(jsonStr);
+        console.log('[JSON解析] 成功解析到结构化数据:', Object.keys(parsed));
+        
+        if (parsed.day_spots && typeof parsed.day_spots === 'object') {
+          const result = [];
+          const sortedKeys = Object.keys(parsed.day_spots).sort((a, b) => parseInt(a) - parseInt(b));
+          for (const key of sortedKeys) {
+            const spots = parsed.day_spots[key];
+            if (Array.isArray(spots)) {
+              result.push({
+                day: parseInt(key),
+                spots: spots.map(s => typeof s === 'string' ? s : (s.name || s)).filter(Boolean)
+              });
+            }
+          }
+          if (result.length > 0) {
+            console.log('[JSON解析] 从 day_spots 提取到', result.length, '天');
+            for (const d of result) {
+              console.log('  Day', d.day, ':', d.spots.join(', '));
+            }
+            return result;
+          }
+        }
+        
+        if (parsed.spots && Array.isArray(parsed.spots)) {
+          return [{ day: 1, spots: parsed.spots }];
+        }
+        
+        if (parsed.day_plan && Array.isArray(parsed.day_plan)) {
+          return parsed.day_plan.map(d => ({
+            day: d.day || d.day_num || 1,
+            spots: (d.spots || d.spot_list || d.places || []).map(s => typeof s === 'string' ? s : (s.name || s))
+          })).filter(d => d.spots.length > 0);
+        }
+        
+        console.warn('[JSON解析] 结构不匹配，回退到正则解析');
+      } catch (e) {
+        console.warn('[JSON解析] JSON 解析失败:', e.message, '回退到正则解析');
+      }
+    }
+    
+    const inlineJsonMatch = planText.match(/\{[\s\S]*?"day_spots"[\s\S]*?\}/);
+    if (inlineJsonMatch) {
+      try {
+        const parsed = JSON.parse(inlineJsonMatch[0]);
+        if (parsed.day_spots && typeof parsed.day_spots === 'object') {
+          const result = [];
+          const sortedKeys = Object.keys(parsed.day_spots).sort((a, b) => parseInt(a) - parseInt(b));
+          for (const key of sortedKeys) {
+            const spots = parsed.day_spots[key];
+            if (Array.isArray(spots)) {
+              result.push({
+                day: parseInt(key),
+                spots: spots.map(s => typeof s === 'string' ? s : (s.name || s)).filter(Boolean)
+              });
+            }
+          }
+          if (result.length > 0) {
+            console.log('[JSON解析] 从内联JSON提取到', result.length, '天');
+            for (const d of result) {
+              console.log('  Day', d.day, ':', d.spots.join(', '));
+            }
+            return result;
+          }
+        }
+      } catch (e) {
+        console.warn('[JSON解析] 内联JSON解析失败:', e.message);
+      }
+    }
+    
+    return null;
+  }
+  
+  // 尝试结构化JSON解析（主路径）
+  const structuredResult = tryParseStructuredJSON(planText);
+  if (structuredResult) {
+    console.log('[方案C] 使用结构化JSON解析结果（主路径）');
+    const result = structuredResult.map(d => ({
+      day: d.day,
+      spots: d.spots
+    }));
+    console.log(`[buildDayList] JSON路径提取到 ${result.length} 天:`);
+    for (const d of result) {
+      console.log(`  Day ${d.day}: ${d.spots.length}个景点 — ${d.spots.join(', ')}`);
+    }
+    return result;
+  }
+  
+  console.log('[方案C] 未找到结构化JSON，回退到正则解析路径');
+  
+const seen = new Set();
+  const days = [{ day: 1, spots: [] }];
+  let currentDay = 1;
+
+  // 1. 构建数据库景点名集合
+  const dbSpotNames = new Set();
+  if (spotsFromDB && spotsFromDB.length > 0) {
+    for (const s of spotsFromDB) {
+      const n = (s.name || s.title || '').trim();
+      if (n && n.length >= 2) {
+        dbSpotNames.add(n);
+        seen.add(n);
+      }
+    }
+  }
+
+  // DB 景点先不放进去（会被 AI 景点替换），只用来验证
+
+  const lines = planText.split('\n');
+
+  // === 跳过词 ===
+  const SKIP_HEADERS = new Set([
+    '项目','内容','合计','总计','预算','风格','人群','季节','天数','主题','住宿','交通','市区','市中心',
+    '预算等级','预算水平','出行人群','旅行风格','游玩天数','季节推荐',
+    '省钱小贴士','穿衣建议','必备物品','市内交通','交通方式','体力安排',
+    '拍照建议','预约提示','游览顺序','最佳游玩时间','气温','天气状况',
+    '预算建议','门票参考','行程路线','住宿推荐','返程酒店','游玩','行李',
+    '省钱贴士','住宿','餐饮','门票','交通','购物/杂项','总计','合计',
+    '目的地','最佳季节','主题偏好','季节特点','出行建议','天气','温度','湿度',
+    '今日预算','人均费用','预约方式','注意事项','推荐原因','价格区间',
+    '预约提醒','推荐路线','历史古迹','核心亮点','雨天备选','时间压缩','体力考虑',
+    '餐饮推荐','交通指南','美食推荐','费用明细','必备物品',
+  ]);
+
+  // === 元数据行跳过 ===
+  // - 📍 地址：xxx / - 🎫 门票：xxx / - 👥 情侣体验：xxx / - ⭐ 推荐看点：
+  const META_LINE = /^\s*[\-•]\s*[📍🎫👥⭐💡💫📸🎟️🚋🚌🚄✈️🚗🚕💰⏰🌤️⛅☁️❄️🔥🌬️🚰🍜💼🧳🧭🏨🚉✈️]|^(上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐|宵夜|夜宵)[：:]\s*$/;
+
+  // === 时段加粗提取（支持两种格式）===
+  // 格式 A: **上午（9:00-12:00）：瘦西湖游览**  ← 时间在时段后面的括号里
+  // 格式 B: **上午：瘦西湖风景区（9:00-12:00）** ← 时间在景点名后面的括号里
+  const TIME_PERIOD_BOLD_A = /\*\*(上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐|宵夜|夜宵)\s*[（(].*?[）)]\s*[：:]\s*([^*]+?)\*\*/;
+  const TIME_PERIOD_BOLD_B = /\*\*(上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐|宵夜|夜宵)\s*[：:]\s*([^(*]+?)(?:[（(].*?[）)])?\*\*/;
+
+  // === 时段内景点提取（不含时段前缀的加粗）===
+  const SPOT_BOLD = /\*\*([^*\n]{2,25})\*\*/g;
+
+  // === 列表项冒号提取 ===
+  // - 五亭桥：扬州地标性建筑 → 提取 "五亭桥"
+  // 跳过已被标记的章节标题（**地址**：/ **门票**：/ **推荐**：）
+  const LIST_COLON = /^\s*[\-•]\s+(?:\*\*)?([^:：\s*]{2,15})\*\*?[：:]/;
+
+  // === 景点名后缀清理 ===
+  // 去掉 "游览"/"观光"/"深度游览"/"体验" 等冗余后缀
+  const SPOT_SUFFIX_STRIP = /(游览|观光|深度游览|深度探索|体验|休闲|活动|安排|计划|推荐|探访|参观|美食|用餐|购物|逛街|打卡|早餐|午餐|晚餐)+$/;
+
+  // === 景点验证 ===
+  const STRONG_SUFFIX = /[山湖河江海园苑阁楼塔寺庙观宫府街巷道路镇村城堡滩岛泉瀑林谷峰石洞窟亭台榭堂厅殿桥陵墓馆博物馆广场码头公园景点景区园馆庵观祠院寺]/;
+  const PURE_FOOD = /[汤粉面饺包糕饼糖饭菜酒茶粥餐/壶杯碗碟]/;
+  const DB_PREFIX = /^(抵达|离开|返回|前往|出发|办理|休息|自由|散步|购物|购买|拍照|品尝|享受|体验|漫步|游玩|交通|高铁|飞机|打车|公交|地铁|入住|退房|返程|报到|集合)/;
+  // 加粗兜底用的元信息收尾词（"XX推荐/XX指南/最佳季节"等标题类加粗不算景点）
+  const BOLD_META_SUFFIX = /(推荐|指南|提醒|建议|偏好|特点|季节|天数|等级|人群|温度|湿度|预算|明细|清单|亮点|特色|路线|须知|事项|方式|原因|理由|区间|分析|天气|交通|住宿|餐饮|门票)+$/;
+
+  // === 主地名归一化（强制规则：复合词只保留主地名，活动/子景点/区域修饰一律剥掉）===
+  // 瘦西湖五亭桥→瘦西湖、大明寺栖灵塔→大明寺、东关街夜景/夜游东关街/东关街深度游→东关街、
+  // 何园复道回廊→何园、瘦西湖风景名胜区→瘦西湖
+  const ACTIVITY_PREFIX = /^(夜游|夜逛|漫步|散步|游览|参观|体验|打卡|逛|品尝|观赏|逛街|登上|进入|徒步|骑行|参加|观看|感受|探索|发现|拍照|购物|欣赏|游玩|休闲|探访|前往|抵达|到达|办理|休息|闲逛|溜达)\s*/;
+  const ACTIVITY_SUFFIX = /(夜景|夜游|夜逛|深度游|深度|漫步|散步|休闲游|游船|画舫|品茶|拍照|观赏|参观|游览|逛街|打卡|体验|休闲|闲逛|溜达)+$/;
+  // 景点内部子点（主地名在前，子点在后）：剥掉子点只留主地名
+  const SUB_SPOT_SUFFIX = /(五亭桥|栖灵塔|复道回廊|二十四桥|钓鱼台|白塔|五亭|九曲桥|湖心亭|大雄宝殿|天王殿|藏经楼|钟鼓楼|御花园|长廊|石舫|牌楼|牌坊|山门|前殿|后殿)$/;
+  // 区域修饰词（保留主地名）：瘦西湖风景名胜区→瘦西湖
+  const AREA_SUFFIX = /(风景名胜区|名胜风景区|风景区|名胜区|文化旅游区|生态旅游区|旅游度假区|旅游区|度假区|文化区|生态区)$/;
+
+  function normalizeSpotName(raw) {
+    let n = (raw || '').replace(/\*\*/g, '').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').trim();
+    if (!n) return '';
+    // 剥引导词前缀（推荐：趣园茶社 → 趣园茶社、可选：XX → XX）
+    n = n.replace(/^(推荐|可选|建议|备选|精选|热门|必去|网红|主打|特色|招牌|人气)\s*[：:]\s*/, '');
+    // 反复剥，处理"夜游XX夜景"这类前后都有活动词的情况
+    for (let i = 0; i < 3; i++) {
+      const before = n;
+      n = n.replace(ACTIVITY_PREFIX, '').replace(ACTIVITY_SUFFIX, '').trim();
+      if (n === before) break;
+    }
+    n = n.replace(SUB_SPOT_SUFFIX, '').trim();
+    n = n.replace(AREA_SUFFIX, '').trim();
+    return n;
+  }
+
+  function addSpot(name, skipStrict) {
+    // 强制规则：先归一化为主地名，活动词/子景点/区域词一律剥掉（瘦西湖五亭桥→瘦西湖、夜游文昌阁→文昌阁）
+    let n = normalizeSpotName(name);
+    n = n.replace(/^(参观|游览|漫步|体验|品尝|入住|退房|登上|进入|逛|打卡|徒步|骑行|参加|观看|感受|探索|发现|拍照|购物|散步|欣赏|游玩|休闲|探访|前往|抵达|到达|办理|休息|游玩)\s*/, '');
+    // 去掉冗余后缀
+    n = n.replace(SPOT_SUFFIX_STRIP, '');
+    n = n.replace(/(核心区|区域|游览区|附近|周边|边上)$/, '');
+    n = n.trim();
+    if (!n || n.length < 2 || n.length > 30) return false;
+    if (seen.has(n)) return false;
+    // 当天内别名包含去重：新名与当天已提取景点构成双向包含（短方≥2字）则视为同一景点。
+    // 如当天已有"东关街"，则"夜游东关街/东关街夜景/东关街深度游"算重复；已有"何园"则"何园复道回廊"算子点。
+    // 比较时先剥活动前后缀（夜游/夜景/深度游/风景区等）取核心地名，解决"东关街夜游"vs"夜游东关街"互不包含的问题。
+    // 只比当天，不跨天，避免误杀其他天重访的景点。
+    const _coreOf = (x) => (x || '')
+      .replace(/^(夜游|夜逛|漫步|散步|游览|参观|体验|打卡|逛|品尝)/, '')
+      .replace(/(夜景|夜游|夜逛|深度游|深度|漫步|散步|休闲游|游船|画舫|风景区|名胜区|景区|旅游区|度假区|商圈)$/, '');
+    const _today = days[currentDay - 1] ? days[currentDay - 1].spots : [];
+    const _cn = _coreOf(n);
+    for (const s of _today) {
+      const cs = _coreOf(s);
+      const a = _cn.length <= cs.length ? _cn : cs;
+      const b = _cn.length <= cs.length ? cs : _cn;
+      if (a.length >= 2 && b.includes(a)) {
+        console.log(`[addSpot] REJECT(当天别名重复): "${n}" ≈ 当天已提取 "${s}"`);
+        return false;
+      }
+    }
+    // 宽松模式（地点字段/表格地点列）：只做基础检查，跳过数字/后缀限制
+    if (skipStrict) {
+      seen.add(n);
+      days[currentDay - 1].spots.push(n);
+      console.log(`%c[景点提取] Day${currentDay} ✅(宽松) "${n}"\n        来源行: ${_dbgLine}`, 'color:#2e7d32');
+      return true;
+    }
+    if (SKIP_HEADERS.has(n)) return false;
+    if (city && (n === city || n === city + '市')) return false;  // 城市名本身不是景点
+    if (/[，。！？、；：:""''（）\[\]【】\s\*]/.test(n)) return false;
+    if (/^[\d\.\-:%约元￥¥]+$/.test(n)) return false;
+    // 纯食物拒（不在 DB 里的）；但含街/巷/路/门/庙/馆/广场/古镇等地点特征词的名称放行，避免误拒
+    if (PURE_FOOD.test(n) && !dbSpotNames.has(n) && !STRONG_SUFFIX.test(n)) return false;
+    if (DB_PREFIX.test(n)) return false;
+    // 数字+无强后缀 → 拒绝（但含景点特征词的地址如"XX路25号"允许）
+    if (/\d/.test(n) && !STRONG_SUFFIX.test(n) && !dbSpotNames.has(n)) {
+      const FEAT_WORDS = /[路街道村镇城区县市公园景区广场码头车站机场寺庙塔山湖海河园馆宫府楼阁桥梁洞崖窟谷峰岭亭台榭堂殿陵墓]/;
+      if (!FEAT_WORDS.test(n)) {
+        console.log(`[addSpot] REJECT(no_feat): "${n}"`);
+        return false;
+      }
+    }
+    seen.add(n);
+    days[currentDay - 1].spots.push(n);
+    console.log(`%c[景点提取] Day${currentDay} ✅ "${n}"\n        来源行: ${_dbgLine}`, 'color:#1565c0;font-weight:bold');
+    return true;
+  }
+
+  // 表格"地点"列宽松校验：必须是带地点特征词的地名，排除地址/价格/温度/说明文字
+  function isValidLooseLoc(loc) {
+    if (!loc || loc.length < 2 || loc.length > 30) return false;
+    if (seen.has(loc)) return false;
+    if (/^[\d\s\.\-～~到至℃°%:：]*$/.test(loc)) return false;                                     // 纯数字/温度/符号
+    if (/\d+\s*号/.test(loc)) return false;                                                        // 门牌号地址（淮海路154号）
+    if (/^[\u4e00-\u9fa5]{2,6}(路|道|巷|大街|大道|环线|快速路|高架)$/.test(loc)) return false;      // 纯道路名（兴扬路），不含"街"
+    if (/[，、；""''（）\[\]【】\/／|＋+]/.test(loc)) return false;                                 // 含标点/斜杠/加号
+    if (/(\d+号|每人|\/人|每晚|元|附近|周边|边上|景区内|内|旁|晚餐|午餐|早餐)$/.test(loc)) return false; // 地址/价格/相对位置结尾
+    if (/(预约|免费|建议|适合|自带|结束|返程|纪念品|观光车|共享单车|地铁|公交|打车|门票|合计|人均|费用|价格|区间)/.test(loc)) return false; // 交通/费用/说明类
+    return STRONG_SUFFIX.test(loc) || dbSpotNames.has(loc);                                        // 必须有地点特征词
+  }
+
+  // 非景点标签词：AI 常把字段名/说明词误写进"今日景点"清单（如"地址、重点、情侣浪漫点、推荐餐厅、
+  // 选择二选一、特色、推荐购买地、博物馆(泛指)"），这些绝不是景点，清单/正文里遇到一律丢弃
+  const NON_SPOT_LABELS = new Set([
+    '地址','重点','亮点','特色','特点','情侣浪漫点','浪漫点','推荐餐厅','餐厅推荐','推荐美食','美食推荐',
+    '推荐购买地','购买地','购物地','购物推荐','选择二选一','二选一','二选其一','任选其一','博物馆',
+    '门票','门票参考','门票价格','游玩时长','时长','游览时间','建议','游览建议','游玩建议','注意事项',
+    '注意','小贴士','贴士','住宿','住宿建议','酒店','美食','购物','交通','交通建议','交通方式','预算',
+    '人均','人均消费','费用','午餐','晚餐','早餐','宵夜','夜宵','推荐','备注','说明','开放时间','预约',
+    '预约方式','位置','导航','停车','天气','行程','路线','安排','概览','简介','介绍','玩法','攻略','总结',
+    '小计','合计','总计','穿着','穿搭','汉服','品茶','拍照','夜景','散步','漫步','品茶','休闲','自由活动',
+    '文创','文创体验','文创产品','告别','告别晚餐','返程','离开','送站','送机','夜晚散步','夜间散步','晚上散步','自由活动','购物体验',
+    '步行','步行前往','步行至','打车','打车前往','乘车','乘车前往','坐地铁','乘地铁','乘公交','地铁前往','公交前往','自驾','骑车前往','前往','转乘','换乘',
+    // 生活建议类
+    '购票','排队','防晒','带伞','雨伞','雨衣','保暖','防寒','防暑','防蚊','注意安全','小心','建议携带',
+    // 活动体验类（纯活动，不含地名）
+    '园林品茶','夜游','深度游','观赏','参观','游览','逛街','闲逛','打卡','拍照留念','品茶','喝茶','喝咖啡',
+    // 时间类
+    '上午','下午','晚上','中午','凌晨','清晨','傍晚','黄昏','半夜','半小时','一小时','两小时','全天','半天',
+    // 价格类
+    '免费','收费','票价','价格','花费','开销','消费','人均花费',
+    // 其他杂项
+    '展览亮点','文创小店','咖啡馆','独立书店','书店','论坛','文艺之旅','情侣','类型','必去','必打卡','网红',
+    '可选','备选','推荐','建议','精选','热门','主打','招牌','人气',
+    // 通用景点分类标签（不是具体景点名）
+    '必游景点','必去景点','热门景点','推荐景点','著名景点','特色景点','主要景点','核心景点','精选景点','人气景点','网红景点','打卡景点','必游之地','必去之地',
+    '必游','必去','景点','景区','游览路线','游览线路','旅游路线','旅游线路','行程路线','游玩路线',
+    '古老的','热闹的','必去的','有趣的','漂亮的','美丽的','著名的','有名的'
+  ]);
+  function isNonSpotLabel(w) {
+    const s = (w || '').replace(/\*\*/g, '').trim();
+    if (!s) return true;
+    if (NON_SPOT_LABELS.has(s)) return true;
+    // 门牌号地址（如"盐阜东路10号""淮海路154号"）绝不是景点名
+    if (/\d+\s*号/.test(s)) return true;
+    // 纯道路名（2-6字 + 路/道/巷/大街/大道/环线），如"兴扬路""徐凝门大街"；不含"街"（东关街/观前街是景点）
+    if (/^[\u4e00-\u9fa5]{2,6}(路|道|巷|大街|大道|环线|快速路|高架)$/.test(s)) return true;
+    // 纯活动/体验短语（不含地名时）
+    if (/(推荐餐厅|餐厅推荐|推荐购买|购买地|购物地|二选一|浪漫点|门票参考|人均消费|游览建议|游玩建议|注意事项|开放时间|交通建议|住宿建议|美食推荐|情侣|小计|合计|汉服|品茶|拍照|穿着|穿搭|赏景|看夜景|自由活动|文创|告别|返程|送站|送机|购票|排队|防晒|带伞|车程)/.test(s)) return true;
+    // 以散步/漫步/闲逛结尾且不含地点特征字（河/湖/园/街/寺…）→ 纯活动（如"夜晚散步"），含地名的"秦淮河漫步"保留
+    if (/(散步|漫步|闲逛|溜达)$/.test(s) && !STRONG_SUFFIX.test(s)) return true;
+    // 交通方式/前往方式（步行前往、打车、乘车前往、转乘…）不是景点
+    if (/^(步行|走路|徒步|打车|乘车|坐地铁|乘地铁|乘公交|地铁|公交|自驾|骑车|骑行|转乘|换乘|前往|去往|乘)/.test(s)) return true;
+    if (/(步行前往|步行至|打车前往|乘车前往|地铁前往|公交前往|骑车前往|前往下一|前往下一个)$/.test(s)) return true;
+    // 时间词（上午/下午/晚上/白天/XX:XX/半小时等）不是景点
+    if (/^(上午|下午|晚上|白天|中午|凌晨|清晨|傍晚|黄昏|半夜|全天|半天|[早晚中]午)$/.test(s)) return true;
+    if (/^\d{1,2}[:：]\d{2}/.test(s)) return true;          // 10:00 / 10：00
+    if (/^\d+\s*(分钟|小时|个半小时|半)$/.test(s)) return true; // 半小时 / 30分钟
+    // 价格类（免费 / XX元 / 预算…）
+    if (/^(免费|收费|票价|预算|花费|开销|消费)$/.test(s)) return true;
+    if (/\d+\s*(元|块|￥|¥)/.test(s)) return true;
+    // 形容词描述类（"古老的""热闹的""必去的"）
+    if (/的$/.test(s)) return true;
+    // "分类标签 + 景点/景区/打卡点/去处" 模式（如"免费景点""热门景区""必去打卡点"）
+    if (/^(免费|开放|收费|热门|推荐|必去|必游|著名|特色|精选|人气|网红|主打|招牌|必玩)\s*(景点|景区|打卡点|去处|地方|公园)/.test(s)) return true;
+    // 单说"景点/景区/打卡点/去处"本身也不是具体地名
+    if (/^(景点|景区|打卡点|去处|地方)$/.test(s)) return true;
+    // 短标签词（≤6字）以这些字段名开头（前缀匹配，拦截"建议住宿""门票价格"等）
+    if (s.length <= 6 && /^(推荐|建议|备注|说明|地址|亮点|特色|重点|门票|时长|费用|预算|交通|住宿|美食|购物|午餐|晚餐|早餐|人均|预约|开放|小计|合计|路线|类型|情侣|论坛)/.test(s)) return true;
+    return false;
+  }
+
+  // 天数头总数预扫描：≥2 个时，天数头之前出现的箭头行视为行程总览，不并入第1天
+  const dayHeaderCount = lines.filter(l => detectDayHeader(l.trim()) > 0).length;
+  let dayHeaderSeen = false;
+  // 餐饮/美食推荐小节标记：小节内的加粗餐厅名不算景点；进入其他标题小节时自动复位
+  let inDiningSection = false;
+  // 附录模式：天数区结束后的"## 预算/交通/美食/住宿/打卡/贴士"等章节，不再提取任何景点
+  let appendixMode = false;
+
+  // === 主循环 ===
+  // 调试用：记录当前正在解析的行，addSpot 成功时打印"景点 ← 来源行"，便于核对景点是怎么来的
+  let _dbgLine = '';
+  for (const line of lines) {
+    const stripped = line.trim();
+    _dbgLine = stripped;
+
+    // 跳过空行
+    if (!stripped) continue;
+
+    // 餐饮小节标记：#标题或加粗行指明 早/午/晚餐、美食（推荐|指南|建议）时进入小节；其他 #标题 复位
+    if (/^#{1,6}\s|^[\-•]?\s*\*\*(?:早餐|午餐|晚餐|宵夜|夜宵|美食|餐饮)/.test(stripped)) {
+      inDiningSection = /(早餐|午餐|晚餐|宵夜|夜宵|美食|餐饮)\s*(?:推荐|指南|建议)/.test(stripped);
+    }
+
+    // 天数头检测（提前计算，供附录模式判断与下方天数头分支复用）
+    // 表格行（以 | 开头）里的 "Day1/第1天" 是概览表内容，绝不是天数头
+    const dayNum = stripped.startsWith('|') ? 0 : detectDayHeader(stripped);
+    const isDayHeaderLine = dayNum > 0 && !stripped.includes('→') && !stripped.includes('->');
+
+    // 附录模式：天数区结束后的"## 预算/交通指南/美食推荐/住宿推荐/打卡贴士"等章节停止提取，
+    // 避免路线建议行（如 "- **第一天：**夫子庙→瞻园"）重置天数、尾部分类小节污染最后一天
+    if (/^#{2}\s/.test(stripped) && dayNum === 0 &&
+        /(预算|费用|交通|美食|餐饮|住宿|酒店|贴士|建议|打卡|拍照|亮点|总结|攻略|购物|装备|物品|注意|锦囊|须知|附录)/.test(stripped)) {
+      appendixMode = true;
+    }
+    if (isDayHeaderLine) appendixMode = false;
+    if (appendixMode) continue;
+
+    // 跳过 Markdown 表格分隔线（|---|---|），行程表数据行提取景点
+    if (stripped.startsWith('|')) {
+      // 天数头出现之前的表格都是概览/天气/预算表，整段跳过
+      if (dayHeaderCount > 0 && !dayHeaderSeen) continue;
+      if (inDiningSection) continue;  // 美食/餐厅推荐表格不是景点
+      if (/^\|[\s\-:|]+\|$/.test(stripped)) continue;  // 分隔线
+      if (/^\|\s*(时间|日期|Day|天数|项目|类别|区域|景点|天气|温度|湿度|费用)\s*\|/.test(stripped)) continue; // 表头
+      const cells = stripped.split('|').map(c => c.trim()).filter(c => c);
+      if (cells.length < 2) continue;
+
+      const actRaw = (cells[1] || '').replace(/\*\*/g, '').trim();     // 活动/行程列
+      // 地点/景点列：剥加粗、括号、"地址："前缀；详情列若误作地点列，取首个标点前的短地名
+      let locRaw = (cells[2] || '').replace(/\*\*/g, '').replace(/[（(][^（()]*?[）)]/g, '').trim();
+      locRaw = locRaw.replace(/^(地址|地点)\s*[：:]\s*/, '').split(/[，,。；;]/)[0].trim();
+
+      // 跳过非游览行：餐饮（早/午/晚餐/用餐/餐厅/美食，含"告别晚餐"这类）、抵达/入住/退房/返程、
+      // 自由活动/休闲放松、文创/购物/纪念品 等非景点活动
+      if (/(早餐|午餐|晚餐|宵夜|夜宵|用餐|餐厅|美食|特色菜|早点)/.test(actRaw)) continue;
+      if (/^(到达|抵达|办理|入住|退房|返程|自由活动|休闲放松|休息|散步|购物)/.test(actRaw)) continue;
+      if (/(文创|纪念品|购物|购买|伴手礼|手信|品茶|喝茶|咖啡|汉服|拍照打卡)/.test(actRaw)) continue;
+
+      // 从活动列提取景点名：取第一个 ：/，/（ 之前的文本
+      let name = actRaw.split(/[：:，,（(]/)[0].trim();
+      name = name.replace(/^(参观|游览|漫步|体验|登上|进入|逛|打卡|徒步|骑行|参加|观看|感受|探索|发现|游玩|欣赏|品尝|办理|入住|退房)/, '');
+      name = name.replace(SPOT_SUFFIX_STRIP, '');
+      name = name.replace(/(核心区|区域|游览区|度假区|附近|周边|边上)$/, '');
+      name = name.trim();
+      // 活动列提取结果是字段标签/非景点（小计、文创、告别、夜晚散步…）→ 整行跳过
+      if (isNonSpotLabel(name)) continue;
+
+      // 活动列名含相对位置词（周边/附近/边上）说明不是精确地名，改用地点/景点列
+      const locOk = locRaw && isValidLooseLoc(locRaw);
+      if (/[周边附近边上]/.test(name)) {
+        if (locOk) addSpot(locRaw, true);
+        continue;
+      }
+
+      // 优先用活动列名称；仅当活动列根本没有像样地名时才回退到地点/景点列。
+      // 活动列是有效地名（即使与清单重复导致 added=false）也不回退，避免把详情列文本（如"大运河文化重要节点"）误当景点。
+      const parts = name.split(/[&＋+、，]/).map(s => s.trim()).filter(s => s.length >= 2);
+      let added = false;
+      for (const p of parts) {
+        if (addSpot(p)) added = true;
+      }
+      const actLooksLikeSpot = name && (STRONG_SUFFIX.test(name) || dbSpotNames.has(name));
+      if (!added && locOk && !actLooksLikeSpot) addSpot(locRaw, true);
+      continue;
+    }
+    // 跳过分隔线 ---
+    if (stripped === '---' || stripped === '***') continue;
+
+    // 跳过"或者/备选/如果/若"类说明行（避免兜底误提取），同时防止"（Day 4）"字样误触天数头
+    if (/^[-•]?\s*(或者|另外|备选|也可以|如果|若|如遇)/.test(stripped)) continue;
+    // 跳过 "1. **雨天备选**：" 这类编号标题行
+    if (/^\d+[\.、]\s*\*\*[^*]+\*\*\s*[：:]?\s*$/.test(stripped)) continue;
+
+    // 1. 天数头检测（dayNum 已在主循环开头计算）
+    if (dayNum > 0) {
+      currentDay = dayNum;
+      dayHeaderSeen = true;
+      seen.clear();   // 每天独立提取：跨天重游的景点（如 Day3 再逛东关街）不能被前一天拦截
+      while (days.length < currentDay) {
+        days.push({ day: days.length + 1, spots: [] });
+      }
+      // 同一行还含箭头行程（如 "第X天：景点A → 景点B"）或"今日景点"清单时不跳过，交给下方解析
+      const hasInlineSpotList = /(今日景点|景点清单)\s*[：:]/.test(stripped);
+      if (!stripped.includes('→') && !stripped.includes('->') && !hasInlineSpotList) continue;
+    }
+
+    // 第一天之前的所有行（概览/天气/预算等）不再提取，仅做天数头检测
+    if (dayHeaderCount > 0 && !dayHeaderSeen) continue;
+
+    // 1a. "今日景点/景点清单" 汇总行 —— 权威源：命中即清空当天已从表格/时段提取的内容
+    //     （含混入的非景点项），完全以 AI 清单为准，保证地图点位与清单"不多不少、顺序一致"。
+    const spotListMatch = stripped.match(/(?:今日景点|景点清单)(?:\*\*)?\s*[：:]\s*(.+)$/);
+    if (spotListMatch) {
+      if (days[currentDay - 1]) {
+        const kept = [], dropped = [];
+        // 当天已从正文（表格/时段/"景点："行）提取到的景点；清单用于对齐与补漏
+        const bodySpots = days[currentDay - 1].spots.slice();
+        // 剥活动前后缀得到核心地名，用于和正文景点做包含匹配
+        const coreName = (s) => s
+          .replace(/^(夜游|夜逛|漫步|散步|游览|参观|体验|打卡|逛)/, '')
+          .replace(/(夜景|夜游|夜逛|深度游|深度|漫步|散步|休闲游|游船|画舫)$/, '')
+          .replace(/(风景区|名胜区|景区|旅游区|度假区)$/, '');
+        const aliasMatch = (n) => {
+          const cn = coreName(n);
+          return bodySpots.some(s => {
+            const cs = coreName(s);
+            const a = cn.length <= cs.length ? cn : cs;
+            const b = cn.length <= cs.length ? cs : cn;
+            return a.length >= 2 && b.includes(a);
+          });
+        };
+        for (let raw of spotListMatch[1].split(/[、,，]|→|->/)) {
+          let n = (raw || '').replace(/\*\*/g, '').trim();
+          n = n.replace(/[（(][^（()]*?[）)]/g, '').trim();
+          n = n.replace(/^[\p{Extended_Pictographic}\uFE0F]+|[\p{Extended_Pictographic}\uFE0F]+$/gu, '');
+          n = n.replace(/\s+/g, '');
+          n = n.replace(/[。．,;；!！?？、]+$/, '');
+          if (!n || n.length < 2) continue;
+          // 字段标签/地址/纯活动（地址、重点、情侣浪漫点、推荐餐厅、小计、穿着、品茶、汉服拍照、盐阜东路10号…）丢弃
+          if (isNonSpotLabel(n)) { dropped.push(n + '(标签/地址)'); continue; }
+          // 串扰/虚构：当天正文已提取到景点、但本清单项与正文任何景点都不构成包含匹配
+          // （如 Day2 清单里混入 Day1 的"瘦西湖/大明寺"），丢弃；正文为空时不拦截（清单为唯一来源）
+          if (bodySpots.length > 0 && !aliasMatch(n)) { dropped.push(n + '(串扰)'); continue; }
+          if (addSpot(n)) kept.push(n);
+        }
+        console.log(`%c[今日景点行] Day${currentDay} 清单解析:\n        原文: ${stripped}\n        ✅采用: [${kept.join('，')}]\n        ❌丢弃: [${dropped.join('，')}]\n        当天最终: [${days[currentDay - 1].spots.join('，')}]`, 'color:#e65100;font-weight:bold');
+      }
+      continue;
+    }
+
+    // 1b. 箭头格式行程行解析（"→" 或 "->" 连接的行程节点）
+    // 如："抵达某市 → 入住酒店 → 景点A → 景点B → 景点C"
+    // 已进入某天章节、或全文几乎无天数头时才解析，避免跨天"行程总览"行污染第1天
+    // "推荐路线/游览路线：南门入→五亭桥→北门出"是步行路径与出入口，不是景点，整行跳过
+    if ((stripped.includes('→') || stripped.includes('->')) && !META_LINE.test(stripped)
+        && !/(推荐路线|游览路线|路线[：:]|步行路线)/.test(stripped)) {
+      if (dayHeaderSeen || dayHeaderCount <= 1) {
+        const TRANSPORT_PREFIX = /^(抵达|离开|返回|前往|出发|办理|入住|退房|返程|集合|报到|休息|散步|购物|拍照|品尝)/;
+        // 节点清洗：去空格/加粗/括号内时间/列表符/emoji/天数头与时段前缀/尾部标点与冗余后缀
+        const cleanNode = (raw) => {
+          let n = (raw || '').replace(/\*\*/g, '').trim();
+          n = n.replace(/^[#>\-•*\s]+/, '');                                           // Markdown 标记/列表符
+          n = n.replace(/^[\p{Extended_Pictographic}][\uFE0F]?\s*/u, '');              // emoji 前缀
+          n = n.replace(/^\d+\s*[\.、]\s*/, '');                                       // 序号前缀
+          n = n.replace(/^(?:第\s*[一二三四五六七八九十\d]+\s*天|Day\s*0*\d+)\s*[：:|]?\s*/i, ''); // 天数头前缀
+          n = n.replace(/^(?:上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐|宵夜|夜宵)\s*[：:]?\s*/, ''); // 时段前缀
+          n = n.replace(/^\d{1,2}[:：]\d{2}\s*[-~～到至]\s*\d{1,2}[:：]\d{2}\s*/, '');  // 前置时间段
+          n = n.replace(/[（(][^（()]*?[）)]/g, '').trim();                             // 括号内时间说明
+          n = n.replace(/^(?:游览|参观|漫步|游玩|逛|打卡|登上|进入|走进|徒步|骑行)\s*/, ''); // 动作前缀剥离
+          n = n.replace(/[。．，,;；!！?？、]+$/, '');                                  // 尾部标点
+          n = n.replace(SPOT_SUFFIX_STRIP, '');                                        // 尾部冗余后缀（含"美食"）
+          if (n.includes('：') || n.includes(':')) {                                   // "标签：名称" → 只取名称
+            const segs = n.split(/[：:]/);
+            n = segs[segs.length - 1].trim();
+          }
+          return n.replace(/\s+/g, '');
+        };
+        // 按出现顺序拆分节点并加入当天景点（不做任何重排序）
+        for (const raw of stripped.split(/→|->/)) {
+          const n = cleanNode(raw);
+          if (!n || n.length < 2) continue;
+          // 城市集散点："抵达/到达 + 地名"（如"抵达扬州"）作为当天第1个地点保留
+          // 取动词后第一个标点前的地名，跳过含住宿/办理的长句；直接入列以保留"抵达"前缀
+          const arrM = n.match(/^(抵达|到达)(.+)$/);
+          if (arrM) {
+            const place = arrM[2].split(/[，,。；;、]/)[0].replace(/(市|地区|区域)$/, '').trim();
+            const label = arrM[1] + place;
+            if (place.length >= 2 && !/酒店|入住|办理|车站|机场/.test(place) && days[currentDay - 1] && !seen.has(label)) {
+              seen.add(label);
+              days[currentDay - 1].spots.push(label);
+              console.log(`%c[景点提取] Day${currentDay} ✅(集散点) "${label}"\n        来源行: ${_dbgLine}`, 'color:#6a1b9a;font-weight:bold');
+            }
+            continue;
+          }
+          if (TRANSPORT_PREFIX.test(n)) continue;               // 交通/住宿动词开头的节点跳过
+          if (DB_PREFIX.test(n)) continue;                      // 其余动词/交通方式开头的节点跳过
+          if (/(机场|高铁站|火车站|客运站|站)$/.test(n)) continue;  // 交通场站节点跳过
+          if (/(酒店|宾馆|民宿|客栈)$/.test(n)) continue;        // 住宿节点跳过
+          if (/^[东南西北]?门(入|出)$|^(入口|出口|正门|大门)$/.test(n)) continue;  // 出入口节点跳过
+          addSpot(n);
+        }
+        continue;
+      }
+    }
+
+    // 2. 元数据行跳过（但"地点：XXX"/"景点：XXX"例外，要提取景点）
+    // 先处理"地点：XXX"格式（优先级最高，最可靠）；行首容忍 Markdown 列表符/加粗星号（如 "- **地点：XXX**"）
+    const locMatch = stripped.match(/^[\-\s*•●·◦]*地\s*点\s*[：:]\s*(.+)$/);
+    if (locMatch) {
+      let loc = locMatch[1].trim();
+      loc = loc.replace(/\*\*/g, '').replace(/[（(][^（()]*?[）)]/g, '').trim();
+      loc = loc.replace(/[（(]?\s*约?\d+\s*元[^）)]*\s*[）)]?$/g, '').trim();
+      if (loc && loc.length >= 2 && loc.length <= 30 && !isNonSpotLabel(loc)) {
+        addSpot(loc, true);  // 宽松模式！
+      }
+      continue;
+    }
+    // 2a. "景点：XXX" 格式（如 "● 景点：瘦西湖风景区"）；排除"景点类型/景点介绍/景点特色"等字段
+    const spotColon = stripped.match(/^[\-\s*•●·◦]*景\s*点\s*[：:]\s*(.+)$/);
+    if (spotColon && !/景点\s*[：:]\s*(类型|介绍|特色|亮点|推荐|说明|地址|门票|开放)/.test(stripped)) {
+      let sc = spotColon[1].trim();
+      sc = sc.replace(/\*\*/g, '').replace(/[（(][^（()]*?[）)]/g, '').trim();
+      sc = sc.split(/[，,。；;]/)[0].trim();   // 只取首个标点前的景点名
+      if (sc && sc.length >= 2 && sc.length <= 30 && !isNonSpotLabel(sc)) {
+        addSpot(sc, true);
+      }
+      continue;
+    }
+    // 2b. "区域：XXX" 行（如 "区域：夫子庙 - 秦淮河风光带"）→ 按分隔拆成当天地点
+    // 锚定行首（容忍 列表符/加粗/emoji 前缀），避免"建议住宿区域："这类含"区域"字样的标签误匹配
+    const regionMatch = stripped.match(/^[-•#>\s]*(?:\p{Extended_Pictographic}[\uFE0F]?\s*)?(?:\*\*)?(?:所在区域|今日区域|区域)(?:\*\*)?\s*[：:]\s*(.+)$/u);
+    if (regionMatch && dayHeaderSeen) {
+      const parts = regionMatch[1].replace(/\*\*/g, '').split(/\s*[-–—、，,]\s*/);
+      for (let p of parts) {
+        p = p.replace(/[（(][^（()]*?[）)]/g, '').replace(/\s+/g, '').trim();
+        if (p.length >= 2) addSpot(p);
+      }
+      continue;
+    }
+    if (META_LINE.test(stripped)) continue;
+    // emoji 开头的行（💡贴士 / ✅总结 / 💰预算 / 🍜美食 等）一律跳过，防止加粗标签被兜底误提
+    if (/^[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(stripped)) continue;
+
+    // 3. 时段加粗格式（最高优先级 — 直接给出景点名）
+    let tp = stripped.match(TIME_PERIOD_BOLD_A);   // **上午（9:00-12:00）：瘦西湖游览**
+    if (!tp) tp = stripped.match(TIME_PERIOD_BOLD_B);  // **上午：瘦西湖风景区（9:00-12:00）**
+    if (tp) {
+      let spotStr = tp[2].trim();
+      spotStr = spotStr.replace(/[（(]\s*\d{1,2}[:：]\d{2}\s*[-~～到至]\s*\d{1,2}[:：]\d{2}\s*[）)]\s*$/, '');
+      spotStr = spotStr.replace(/[（(][^（()]*?[）)]\s*$/, '');
+      const parts = spotStr.split(/\s*[+＋]\s*/);
+      for (let p of parts) {
+        p = p.trim();
+        p = p.replace(SPOT_SUFFIX_STRIP, '');
+        p = p.replace(/(附近|周边|边上)$/, '');
+        if (p) addSpot(p);
+      }
+      continue;
+    }
+
+    // 3b. 时段 + 景点格式（容忍 "#### 📍"、"-"、加粗等前缀，AI 新格式）
+    // "#### 📍 下午：游览**瞻园**（...）" / "上午 9:00-12:00 游览xx" / "上午：xx"
+    let tp2 = stripped.match(/^[-•#>\s]*(?:\p{Extended_Pictographic}[\uFE0F]?\s*)?(?:\*\*)?(上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐|宵夜|夜宵)\s*(?:\d{1,2}[:：]\d{2}\s*[-~～到至]\s*\d{1,2}[:：]\d{2})?\s*[：:]\s*(.+)$/u);
+    if (!tp2) tp2 = stripped.match(/^[-•#>\s]*(?:\p{Extended_Pictographic}[\uFE0F]?\s*)?(?:\*\*)?(上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐|宵夜|夜宵)\s*\d{1,2}[:：]\d{2}\s*[-~～到至]\s*\d{1,2}[:：]\d{2}\s+(.+)$/u);
+    if (tp2) {
+      if (!inDiningSection) {
+        let spotStr = tp2[tp2.length - 1].trim().replace(/\*\*/g, '');
+        // 剥掉动词前缀
+        spotStr = spotStr.replace(/^(前往|抵达|参观|游览|漫步|体验|品尝|入住|退房|登上|进入|逛|打卡|徒步|骑行|参加|观看|感受|探索|发现|拍照|购物|散步|欣赏|游玩)/, '');
+        spotStr = spotStr.replace(/[（(]\s*\d{1,2}[:：]\d{2}\s*[-~～到至]\s*\d{1,2}[:：]\d{2}\s*[）)]\s*$/, '');
+        spotStr = spotStr.replace(/[（(][^（()]*?[）)]\s*$/, '');
+        const parts = spotStr.split(/\s*[+＋]\s*/);
+        for (let p of parts) {
+          p = p.trim();
+          p = p.replace(SPOT_SUFFIX_STRIP, '');
+          p = p.replace(/(附近|周边|边上)$/, '');
+          if (p) addSpot(p);
+        }
+      }
+      continue;
+    }
+
+    // 3c. 纯时段+景点名（无时间无冒号）："#### 📍 下午 天然热带雨林公园"
+    let tp3 = stripped.match(/^[-•#>\s]*(?:\p{Extended_Pictographic}[\uFE0F]?\s*)?(?:\*\*)?(上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐|宵夜|夜宵)\s+(.+)$/u);
+    if (tp3) {
+      if (!inDiningSection) {
+        let spotStr = tp3[2].trim().replace(/\*\*/g, '');
+        // 剥掉动词
+        spotStr = spotStr.replace(/^(前往|抵达|参观|游览|漫步|体验|品尝|入住|退房|登上|进入|逛|打卡|徒步|骑行|参加|观看|感受|探索|发现|拍照|购物|散步|欣赏|游玩|休闲)/, '');
+        spotStr = spotStr.replace(/[（(][^（()]*?[）)]\s*$/, '');
+        spotStr = spotStr.replace(SPOT_SUFFIX_STRIP, '');
+        if (spotStr && spotStr.length >= 2) addSpot(spotStr);
+      }
+      continue;
+    }
+
+    // 3d. 非加粗"时段（时间）景点"格式："上午（09:00-12:00）蜀冈-瘦西湖风景名胜区"
+    //     时段后紧跟时间括号（无空格），再接景点名；早/午/晚餐等用餐时段跳过
+    let tp4 = stripped.match(/^[-•#>\s]*(?:\p{Extended_Pictographic}[\uFE0F]?\s*)?(?:\*\*)?(上午|下午|傍晚|清晨|中午|晚上|早餐|午餐|晚餐|宵夜|夜宵)\s*[（(][^）)]*[）)]\s*(.+)$/u);
+    if (tp4) {
+      const period = tp4[1];
+      let spotStr = tp4[2].trim().replace(/\*\*/g, '');
+      // 用餐时段 或 剩余文字是午餐/晚餐/推荐 等餐饮内容 → 跳过
+      const isMealPeriod = /^(早餐|午餐|晚餐|宵夜|夜宵)$/.test(period);
+      const isMealText = /^(午餐|晚餐|早餐|宵夜|夜宵)/.test(spotStr) || /(午餐|晚餐|用餐|美食|小吃|餐厅|菜馆)/.test(spotStr);
+      if (!inDiningSection && !isMealPeriod && !isMealText) {
+        spotStr = spotStr.replace(/^(前往|抵达|参观|游览|漫步|体验|登上|进入|逛|打卡|徒步|骑行|参加|观看|感受|探索|发现|游玩|欣赏)/, '');
+        spotStr = spotStr.replace(/[（(][^（()]*?[）)]\s*$/, '');
+        spotStr = spotStr.replace(SPOT_SUFFIX_STRIP, '');
+        // 晚上/傍晚时段：剥掉活动词（漫步/夜游/散步/夜景）后若仅剩 ≤2 字（如"夜湖"），是泛活动不是地名，跳过
+        const isEvening = /^(晚上|傍晚|清晨)$/.test(period);
+        const eveningCore = spotStr.replace(/(漫步|夜游|散步|夜景)$/, '').trim();
+        if (!(isEvening && eveningCore.length <= 2) && spotStr.length >= 2) {
+          addSpot(spotStr);
+        }
+      }
+      continue;
+    }
+
+    // 4. 列表项冒号格式（- 景点名：描述）
+    const lc = stripped.match(LIST_COLON);
+    if (lc && !inDiningSection) {
+      let name = lc[1].trim();
+      // 去掉加粗标记残留
+      name = name.replace(/\*\*/g, '');
+      // 字段标签/小计/地址类（如 "- **小计**：约570元"）不当景点
+      if (isNonSpotLabel(name)) continue;
+      addSpot(name);
+      continue;
+    }
+
+    // 5. 纯加粗兜底（排除时间段格式和章节标题）
+    const bolds = [...stripped.matchAll(SPOT_BOLD)];
+    for (const b of bolds) {
+      const raw = b[1].trim();
+      // Day1 之前的加粗文本多为攻略概览/元信息（如 "**目的地**：xx"），不作为景点
+      if (dayHeaderCount > 0 && !dayHeaderSeen) continue;
+      // 标签类加粗（含冒号，如 "地址：/特色：/门票：/游览时长：/推荐打卡点："）是元数据标签，不是景点
+      if (/[:：]/.test(raw)) continue;
+      // 餐饮/美食推荐小节里的加粗是餐厅名，不是景点
+      if (inDiningSection) continue;
+      // 跳过"主题：xxx"类标题加粗
+      if (/^(主题|标题|备注|说明|概览)/.test(raw)) continue;
+      // 跳过元信息标题（"XX推荐/XX指南/最佳季节"等收尾词）
+      if (BOLD_META_SUFFIX.test(raw) && !STRONG_SUFFIX.test(raw) && !dbSpotNames.has(raw)) continue;
+      // 跳过章节标题（含"之旅""规划""设计""攻略""总结"）
+      if (/[之旅规划设计攻略总结指南贴士日程安排]/.test(raw) && !STRONG_SUFFIX.test(raw) && !dbSpotNames.has(raw)) continue;
+      // 跳过纯时段词
+      if (/^(上午|下午|晚上|傍晚|清晨|中午|早餐|午餐|晚餐)$/.test(raw)) continue;
+      addSpot(raw);
+    }
+  }
+
+  // 清理空天数
+  const result = days.filter(d => d && d.spots.length > 0);
+
+  console.log(`[buildDayList] 提取到 ${result.length} 天:`);
+  for (const d of result) {
+    console.log(`  Day ${d.day}: ${d.spots.length}个景点 — ${d.spots.join(', ')}`);
+  }
+  return result;
+}
+
+// === 城市名补全 / Geocode / POI 搜索 ===
+
+// 城市名补全：高德 PlaceSearch 有时需要带"市"后缀
+// 上饶 → 上饶市；厦门 → 厦门市；北京 → 北京（不重复加）
+function normalizeCity(city) {
+  if (!city) return '';
+  const trimmed = city.trim();
+  if (/[市区省]$/.test(trimmed)) return trimmed;
+  const noSuffix = new Set(['北京', '上海', '天津', '重庆', '香港', '澳门', '台北', '高雄']);
+  if (noSuffix.has(trimmed)) return trimmed;
+  return trimmed + '市';
+}
+
+// 先 Geocode 城市拿到坐标，再初始化地图（彻底避免北京硬编码）
+function geocodeCity(city) {
+  // 高德 JS SDK 的 Geocoder 存在回调静默失败问题，改用 REST API
+  const normalizedCity = normalizeCity(city);
+  const key = '';
+  const url = `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(normalizedCity)}&key=${key}&output=json`;
+  return new Promise((resolve) => {
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === '1' && data.geocodes && data.geocodes.length > 0) {
+          const [lng, lat] = data.geocodes[0].location.split(',').map(Number);
+          console.log(`[Geocode REST] ${normalizedCity} → ${lng},${lat}`);
+          resolve([lng, lat]);
+        } else {
+          console.warn(`[Geocode REST] 失败: ${data.info || 'unknown'}, city=${normalizedCity}`);
+          resolve(null);
+        }
+      })
+      .catch(e => {
+        console.error('[Geocode REST] fetch 异常:', e);
+        resolve(null);
+      });
+  });
+}
+
+/**
+ * 在指定城市内搜索 POI 坐标（高德 REST API，绕开 JS SDK 回调静默失败问题）
+ * 支持：
+ *  - 具体景点名（"鼓浪屿"）
+ *  - 带城市前缀的全名（"厦门鼓浪屿"）
+ *  - 通用类别词（"美食"、"景点"、"老街"）— 会自动拼到城市名后
+ *
+ * @param {string} keyword  景点名或类别词
+ * @param {string} city     目标城市（如"厦门"）
+ * @returns {Promise<AMap.POI|null>}  返回兼容 POI 对象（含 name/address/location）或 null
+ */
+function searchPOI(keyword, city) {
+  const key = '';
+  const normalizedCity = normalizeCity(city);
+
+  // 相关性校验：高德对任意关键词都会返回"最接近"的商家（塑料厂/餐厅/资金中心等），
+  // 必须确认返回地点与查询名确实是同一个地方，否则当没找到，绝不画无关 POI。
+  // 规则：去掉空格/括号/符号后，两者存在 >=2 字的连续公共子串即算相关。
+  function poiRelevant(kw, poiName) {
+    const norm = s => (s || '').replace(/[\s（）()【】\[\]·\-—_、]/g, '');
+    const a = norm(kw), b = norm(poiName);
+    if (!a || !b) return false;
+    for (let len = Math.min(a.length, b.length); len >= 2; len--) {
+      for (let i = 0; i + len <= a.length; i++) {
+        if (b.includes(a.substr(i, len))) return true;
+      }
+    }
+    return false;
+  }
+
+  return new Promise((resolve) => {
+    // 整体超时保护：8 秒后 resolve(null)，避免 Promise 永远挂起
+    const timeout = setTimeout(() => {
+      console.warn(`[POI] 超时: ${keyword} (${city})`);
+      resolve(null);
+    }, 8000);
+
+    // 尝试列表：先带 citylimit，再不带
+    const CATEGORY_WORDS = /^(景点|景区|公园|老街|美食|小吃|餐厅|酒店|博物馆|寺|塔|桥|街|广场|码头|海边|海滩|山|湖|溪|瀑|古镇|古城|商业街|大学|艺术区|文创)$/;
+    const isCategory = CATEGORY_WORDS.test(keyword.trim());
+    const kwClean = keyword.replace(city, '').replace(normalizedCity, '').trim();
+
+    const attempts = [];
+    if (isCategory) {
+      if (normalizedCity + kwClean) attempts.push(normalizedCity + kwClean);
+      if (kwClean) attempts.push(kwClean);
+    } else {
+      if (keyword) attempts.push(keyword);
+      if (kwClean) attempts.push(kwClean);
+    }
+    // 去重
+    const uniqueAttempts = [...new Set(attempts.filter(a => a && a.length >= 2))];
+    console.log(`[POI REST] searchPOI("${keyword}", "${city}") → ${uniqueAttempts.length} 次尝试`);
+
+    // 限流/网络错误标记：高德个人 key 并发 QPS 超限会返回 status!=='1'，需退避重试
+    let rateLimited = false;
+    // 串行尝试，用 Promise 链
+    const tryOne = (kw) => {
+      // 用于相关性判断的查询核心：去城市名、去活动后缀
+      const core = getCoreName(kw) || kw;
+      const url = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(kw)}&city=${encodeURIComponent(normalizedCity)}&citylimit=true&key=${key}&offset=1&output=json`;
+      return fetch(url)
+        .then(r => r.json())
+        .then(data => {
+          if (data.status !== '1') { rateLimited = true; }   // 限流/服务错误（如 QPS 超限）
+          if (data.status === '1' && data.pois && data.pois.length > 0) {
+            const p = data.pois[0];
+            if (poiRelevant(core, p.name)) {
+              const [lng, lat] = p.location.split(',').map(Number);
+              console.log(`[POI REST] 找到: "${kw}" → ${p.name} (${lng},${lat})`);
+              return { name: p.name, address: p.address, location: { lng, lat }, confidence: 0.85 };
+            }
+            console.warn(`[POI REST] 结果不相关，丢弃: "${kw}" → ${p.name}`);
+          }
+          // 不带 citylimit 再试一次
+          const url2 = `https://restapi.amap.com/v3/place/text?keywords=${encodeURIComponent(kw)}&city=${encodeURIComponent(normalizedCity)}&key=${key}&offset=1&output=json`;
+          return fetch(url2)
+            .then(r2 => r2.json())
+            .then(data2 => {
+              if (data2.status !== '1') { rateLimited = true; }
+              if (data2.status === '1' && data2.pois && data2.pois.length > 0) {
+                const p2 = data2.pois[0];
+                if (poiRelevant(core, p2.name)) {
+                  const [lng2, lat2] = p2.location.split(',').map(Number);
+                  console.log(`[POI REST] 找到(不限city): "${kw}" → ${p2.name} (${lng2},${lat2})`);
+                  return { name: p2.name, address: p2.address, location: { lng: lng2, lat: lat2 }, confidence: 0.65 };
+                }
+                console.warn(`[POI REST] 结果不相关(不限city)，丢弃: "${kw}" → ${p2.name}`);
+              }
+              return null;
+            });
+        })
+        .catch(() => { rateLimited = true; return null; });
+    };
+
+    const runChain = () => uniqueAttempts.reduce((p, kw) => {
+      return p.then(poi => poi || tryOne(kw));
+    }, Promise.resolve(null));
+
+    // 限流退避重试：最多 3 轮（首轮 + 2 次重试），每次延迟递增
+    let round = 0;
+    const exec = () => {
+      runChain().then(result => {
+        if (result) { clearTimeout(timeout); resolve(result); return; }
+        if (rateLimited && round < 2) {
+          round++;
+          rateLimited = false;
+          const delay = 500 * round;
+          console.warn(`[POI REST] 疑似限流，${delay}ms 后第 ${round + 1} 轮重试: ${keyword} (${city})`);
+          setTimeout(exec, delay);
+        } else {
+          clearTimeout(timeout);
+          if (!result) console.warn(`[POI REST] 全部失败: ${keyword} (${city})${rateLimited ? '(限流)' : ''}`);
+          resolve(result);
+        }
+      });
+    };
+    exec();
+  });
+}
+
+// POI 缓存：避免同一个景点名跨天重复搜索
+async function searchPOICached(name, city) {
+  const key = `${name}|${normalizeCity(city)}`;
+  if (_poiCache.has(key)) return _poiCache.get(key);
+  const poi = await searchPOI(name, city);
+  _poiCache.set(key, poi);
+  return poi;
+}
+
+// 并发控制：限制同时进行的 POI 搜索数量
+async function runWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let idx = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (idx < items.length) {
+      const my = idx++;
+      results[my] = await worker(items[my], my);
+    }
+  });
+  await Promise.all(runners);
+  return results;
+}
+
+async function waitAMapReady(maxWait = 5000) {
+  if (window._amapReady) return true;
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const check = () => {
+      if (window._amapReady) return resolve(true);
+      if (Date.now() - start > maxWait) {
+        console.warn('[MAP] AMap plugins timeout');
+        return resolve(false);
+      }
+      setTimeout(check, 100);
+    };
+    check();
+  });
+}
+
+// 渲染单天路线图
+async function renderDayRouteMap(day, city, containerId, dayIdx) {
+  await waitAMapReady();
+  const color = DAY_COLORS[dayIdx % DAY_COLORS.length];
+  const el = document.getElementById(containerId);
+  if (!el) return { day: day.day, spots: [] };
+
+  // 先 Geocode 城市，拿到真实坐标再初始化地图
+  const cityCenter = await geocodeCity(city);
+  const initCenter = cityCenter || [116.397428, 39.90923];
+
+  const dayMap = new AMap.Map(containerId, {
+    zoom: 13, mapStyle: 'amap://styles/normal', viewMode: '2D',
+    center: initCenter,
+  });
+  _dayMaps.push(dayMap);
+
+  // 严格按 AI 行程清单顺序逐个定位：不重排、不增删景点，保证地图点位与行程表一一对应
+  const geoSpots = [];
+  for (const rawName of day.spots) {
+    // 城市集散点"抵达/到达 + 地名"：搜地名本身，定位不到就用城市中心坐标，确保作为第1点上图
+    const arrM = rawName.match(/^(抵达|到达)(.+)$/);
+    const isArrival = !!arrM;
+    const searchName = isArrival ? arrM[2] : rawName;
+    let poi = await searchPOICached(searchName, city);
+    // 定位失败时，用去掉活动词后的核心地名重试一次（如"秦淮河漫步"→"秦淮河"）
+    if (!poi || !poi.location) {
+      const core = getCoreName(searchName);
+      if (core && core !== searchName && core.length >= 2) {
+        poi = await searchPOICached(core, city);
+      }
+    }
+    if (poi && poi.location) {
+      geoSpots.push({
+        name: rawName,                          // 显示名用 AI 清单字面名（如"抵达扬州"），与行程表一致
+        address: poi.address || (isArrival ? '城市集散点' : ''),
+        lnglat: [poi.location.lng, poi.location.lat],
+        confidence: poi.confidence || 0.85,
+      });
+    } else if (isArrival && cityCenter) {
+      // 集散点搜不到时落到城市中心，保证第1点在图上
+      geoSpots.push({ name: rawName, address: '城市集散点', lnglat: cityCenter, confidence: 0.5 });
+    } else {
+      // 定位失败也保留该点（时间线照常显示，地图不画标记），保证"不少地点"
+      console.warn(`[POI] 未找到: ${rawName}`);
+      geoSpots.push({ name: rawName, address: '', lnglat: null, confidence: 0.2 });
+    }
+  }
+
+  // 有坐标的点（用于画折线/标记/自适应视野），顺序仍是 AI 清单顺序
+  const located = geoSpots.filter(s => s.lnglat);
+
+  // 绘制折线（连接有坐标的点，严格按 AI 顺序，不做最近邻重排）
+  const dayMarkers = [];
+  if (located.length >= 2) {
+    const polyline = new AMap.Polyline({
+      path: located.map(s => s.lnglat),
+      strokeColor: color, strokeWeight: 4, strokeOpacity: 0.85,
+      lineJoin: 'round', showDir: true, strokeStyle: 'solid',
+    });
+    dayMap.add(polyline);
+    _dayPolylines.push(polyline);
+  }
+
+  // 绘制标记 + 名称标签 + 信息窗（序号按 AI 清单位置，与时间线编号一致）
+  geoSpots.forEach((spot, i) => {
+    if (!spot.lnglat) return;  // 未定位点不画地图标记
+    const marker = new AMap.Marker({
+      position: spot.lnglat,
+      content: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;">
+        <div style="position:relative;width:28px;height:28px;border-radius:50%;background:${color};border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${i+1}</div>
+        <div style="margin-top:2px;background:#fff;border:1px solid #ddd;border-radius:4px;padding:1px 6px;font-size:11px;color:#333;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.15);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${spot.name}</div>
+      </div>`,
+      anchor: 'bottom-center', offset: new AMap.Pixel(0, -2),
+      zIndex: 100 + i,
+    });
+
+    const info = new AMap.InfoWindow({
+      content: `<div style="padding:10px 16px;font-size:14px;min-width:160px;"><div style="color:${color};font-size:12px;margin-bottom:4px;">Day ${day.day} · 第 ${i+1} 站</div><div style="font-weight:600;font-size:15px;">${spot.name}</div>${spot.address?`<div style="color:#999;font-size:12px;margin-top:4px;">📍 ${spot.address}</div>`:''}</div>`,
+      offset: new AMap.Pixel(0, -35),
+    });
+    marker.on('click', () => info.open(dayMap, spot.lnglat));
+    dayMap.add(marker);
+    dayMarkers.push(marker);
+    _dayMarkers.push(marker);
+  });
+
+  // 自动调整视野
+  if (dayMarkers.length > 0) {
+    dayMap.setFitView(dayMarkers, false, [60,60,60,60]);
+  }
+
+  return { day: day.day, spots: geoSpots };
+}
+</script>
+
+<script>
+// 页面加载时初始化城市概览地图（script 在 body 底部，DOM 已就绪，只需等 AMap 插件）
+(async () => {
+  try {
+    console.log('[CityMap] 开始初始化...');
+    const travelDataEl = document.getElementById('travel-data');
+    if (!travelDataEl) { console.warn('[CityMap] 没有 travel-data 元素'); return; }
+    travelData = JSON.parse(travelDataEl.textContent);
+    const city = travelData.destination;
+    const spots = travelData.spots || [];
+
+    const ready = await waitAMapReady(5000);
+    if (!ready) {
+      console.warn('[CityMap] AMap 插件加载超时');
+      const el = document.getElementById('city-overview-map');
+      if (el) el.innerHTML = '<div style="display:flex;height:100%;align-items:center;justify-content:center;color:#999;">地图暂不可用</div>';
+      return;
+    }
+
+    const mapEl = document.getElementById('city-overview-map');
+    if (!mapEl) return;
+
+    // 先 Geocode 城市，拿到真实坐标再初始化地图
+    const cityCenter = await geocodeCity(city);
+    const initCenter = cityCenter || [116.397428, 39.90923];
+
+    _cityMap = new AMap.Map('city-overview-map', {
+      zoom: 11, mapStyle: 'amap://styles/normal', viewMode: '2D',
+      center: initCenter,
+    });
+
+    // 对数据库景点 searchPOICached → 添加标记
+    if (spots.length > 0) {
+      const uniqueNames = [...new Set(spots.map(s => (s.name || '').trim()).filter(n => n.length >= 2))];
+      await runWithConcurrency(uniqueNames, 2, async (name) => {
+        const poi = await searchPOICached(name, city);
+        if (poi && poi.location) {
+          const marker = new AMap.Marker({
+            position: [poi.location.lng, poi.location.lat],
+            content: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;">
+              <div style="position:relative;width:26px;height:26px;border-radius:50%;background:#d4a853;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,0.3);">📍</div>
+              <div style="margin-top:2px;background:#fff;border:1px solid #ddd;border-radius:4px;padding:1px 5px;font-size:10px;color:#555;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,0.1);max-width:100px;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+            </div>`,
+            anchor: 'bottom-center', offset: new AMap.Pixel(0, -2),
+          });
+          const spotData = spots.find(s => (s.name || '').trim() === name);
+          const intro = spotData ? (spotData.introduction || '').substring(0, 50) : '';
+          const info = new AMap.InfoWindow({
+            content: `<div style="padding:10px 16px;font-size:14px;min-width:160px;"><div style="font-weight:600;font-size:15px;">${poi.name}</div>${poi.address?`<div style="color:#999;font-size:12px;margin-top:4px;">📍 ${poi.address}</div>`:''}${intro?`<div style="color:#666;font-size:12px;margin-top:4px;">${intro}…</div>`:''}</div>`,
+            offset: new AMap.Pixel(0, -35),
+          });
+          marker.on('click', () => info.open(_cityMap, [poi.location.lng, poi.location.lat]));
+          _cityMap.add(marker);
+          _cityMarkers.push(marker);
+        }
+      });
+
+      // 自动调整视野
+      if (_cityMarkers.length > 0) {
+        _cityMap.setFitView(_cityMarkers, false, [80,80,80,80]);
+      }
+    }
+
+    console.log('[CityMap] 城市概览地图初始化完成');
+  } catch (e) {
+    console.error('[CityMap] 初始化失败:', e);
+  }
+})();
+
+// 在每天行程标题下方注入固定格式的"📌 今日景点：A、B、C"清单行
+// 若 AI 已输出该行则不重复注入，保证每天恰好一行
+function injectSpotListLines(planText, days) {
+  if (!days || days.length === 0) return planText;
+  const lines = planText.split('\n');
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    result.push(lines[i]);
+    const dayNum = detectDayHeader(lines[i].trim());
+    if (dayNum > 0) {
+      const day = days.find(d => d.day === dayNum);
+      if (day && day.spots.length > 0) {
+        // 扫描至下一个天数头，确认该天尚未有"今日景点"行
+        let hasList = false;
+        for (let j = i + 1; j < lines.length; j++) {
+          if (detectDayHeader(lines[j].trim()) > 0) break;
+          if (/今日景点|景点清单/.test(lines[j])) { hasList = true; break; }
+        }
+        if (!hasList) {
+          result.push(`今日景点：${day.spots.join('，')}`);
+        }
+      }
+    }
+  }
+  return result.join('\n');
+}
+
+// 独立的路线图渲染函数（Agent 成功/失败都能调用）
+async function renderRouteMaps(planText, days) {
+  // 若未传入已解析的 days，则兜底从 planText 提取
+  if (!days) {
+    days = buildDayList(travelData.spots, travelData.destination, planText);
+  }
+  const allSpots = days.flatMap(d => d.spots);
+  const lowConfSpots = [...new Set(allSpots.filter(s => s.confidence !== undefined && s.confidence < 0.5))];
+  if (lowConfSpots.length > 0) {
+    console.warn('[方案C] 以下景点POI匹配置信度较低，建议核实:', lowConfSpots);
+  }
+  console.log('[TravelAgent] 解析到天数:', days.length, days.map(d => `Day${d.day}(${d.spots.length})`).join(', '));
+
+  // 清理之前的每日地图
+  _dayMaps.forEach(m => { try { m.destroy(); } catch(e){} });
+  _dayMaps.length = 0;
+  _dayPolylines.length = 0;
+  _dayMarkers.length = 0;
+
+  if (days.length === 0) {
+    console.warn('[TravelAgent] 没有可渲染的天数');
+    return;
+  }
+
+  // === 关键改动：把地图+行程卡片插入到 AI 攻略里「每天文本内容的末尾」 ===
+  // 目标：Day1标题 → Day1文本 → Day1地图 → Day1时间线 → Day2标题 → Day2文本 → Day2地图 → Day2时间线 → ...
+  const planContent = document.getElementById('travel-plan-content');
+
+  // 1. 收集所有 h1-h6 标题到数组（一次性快照，后面插 DOM 不会影响这个数组）
+  const allHeadingsArr = Array.from(planContent.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+  console.log('[TravelAgent] 所有标题:', allHeadingsArr.map(h => h.tagName + ':' + h.textContent.substring(0,30)));
+
+  // 2. 从标题数组里找 Day 标题
+  const dayHeaderMap = {};  // { 1: headingEl, 2: headingEl, ... }
+  allHeadingsArr.forEach(h => {
+    const text = h.textContent || '';
+    // 模式 A: 中文数字 "第二天"
+    const m1 = text.match(/(?:第\s*)?([一二三四五六七八九十]+)\s*天/);
+    if (m1) {
+      const num = chineseNumToInt(m1[1]) || 0;
+      if (num > 0 && !dayHeaderMap[num]) { dayHeaderMap[num] = h; return; }
+    }
+    // 模式 B: 阿拉伯数字 "第2天"
+    const m2 = text.match(/第\s*(\d+)\s*天/);
+    if (m2) {
+      const num = parseInt(m2[1]);
+      if (num > 0 && !dayHeaderMap[num]) { dayHeaderMap[num] = h; return; }
+    }
+    // 模式 C: "Day 2" / "DAY 2"
+    const m3 = text.match(/Day\s*0*(\d+)/i);
+    if (m3 && !dayHeaderMap[parseInt(m3[1])]) { dayHeaderMap[parseInt(m3[1])] = h; }
+  });
+
+  console.log('[TravelAgent] Day 标题映射:', Object.keys(dayHeaderMap));
+
+  // 3. 用标题数组的索引来定位插入位置（绝对可靠，不依赖 DOM 兄弟遍历）
+  // Day N 后面的第一个标题 = allHeadingsArr 中 dayHeaderMap[N] 的下一个元素
+  function insertAfterDayText(dayNum, html) {
+    const curHeading = dayHeaderMap[dayNum];
+    if (!curHeading) {
+      planContent.insertAdjacentHTML('beforeend', html);
+      return;
+    }
+    // 找到 curHeading 在 allHeadingsArr 中的索引
+    const idx = allHeadingsArr.indexOf(curHeading);
+    if (idx >= 0 && idx + 1 < allHeadingsArr.length) {
+      // 下一个标题就是 Day N 文本的结束位置，插到它前面
+      allHeadingsArr[idx + 1].insertAdjacentHTML('beforebegin', html);
+    } else {
+      // 最后一个标题，插到攻略末尾
+      planContent.insertAdjacentHTML('beforeend', html);
+    }
+  }
+
+  // 预编码所有唯一景点名（并发3，使用缓存）
+  const uniqueNames = [...new Set(days.flatMap(d => d.spots))];
+  console.log(`[TravelAgent] 预编码 ${uniqueNames.length} 个唯一景点`);
+  await runWithConcurrency(uniqueNames, 2, n => searchPOICached(n, travelData.destination));
+
+  // 先把所有地图 HTML 和时间线占位都插到 DOM 里（从后往前，保证顺序）
+  for (let i = days.length - 1; i >= 0; i--) {
+    const day = days[i];
+    const color = DAY_COLORS[i % DAY_COLORS.length];
+    const containerId = `route-map-day-${i}`;
+    const timelinePlaceholderId = `route-timeline-day-${i}`;
+
+    const mapHTML = `
+      <div style="margin:16px 0;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden;background:#fff;">
+        <div style="padding:10px 20px;background:${color};color:#fff;font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;">
+          <span>🗺️</span> Day ${day.day} · ${travelData.destination}路线图
+          <span style="margin-left:auto;font-size:12px;font-weight:400;opacity:0.85;">${day.spots.length} 个景点</span>
+        </div>
+        <div id="${containerId}" style="height:280px;"></div>
+      </div>
+    `;
+    const timelineHTML = `<div id="${timelinePlaceholderId}" style="margin:12px 0;"></div>`;
+    const combined = mapHTML + timelineHTML;
+
+    if (dayHeaderMap[day.day]) {
+      insertAfterDayText(day.day, combined);
+      console.log(`[TravelAgent] Day ${day.day} 地图插入到 Day ${day.day} 文本末尾`);
+    } else {
+      planContent.insertAdjacentHTML('beforeend', combined);
+      console.log(`[TravelAgent] Day ${day.day} 未找到 Day 标题，插入到攻略末尾（兜底）`);
+    }
+  }
+
+  // 再按正序逐天渲染地图和填时间线（容器已在 DOM 里）
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i];
+    const containerId = `route-map-day-${i}`;
+    const geoDay = await renderDayRouteMap(day, travelData.destination, containerId, i);
+    const tlEl = document.getElementById(`route-timeline-day-${i}`);
+    if (tlEl && geoDay.spots.length > 0) {
+      tlEl.innerHTML = buildSingleDayTimelineHTML(geoDay, i, travelData.destination);
+    }
+  }
+}
+
+// 生成单个 Day 的时间线卡片（不带大标题）
+function buildSingleDayTimelineHTML(day, dayIdx, city) {
+  if (!day || !day.spots || day.spots.length === 0) return '';
+  const color = DAY_COLORS[dayIdx % DAY_COLORS.length];
+
+  let globalIdx = 0;
+  const spotCards = [];
+  day.spots.forEach((spot, i) => {
+    globalIdx++;
+    let walkInfo = '';
+    if (i > 0 && day.spots[i-1].lnglat && spot.lnglat) {
+      const p1 = day.spots[i-1].lnglat;
+      const p2 = spot.lnglat;
+      const dist = AMap.GeometryUtil ? Math.round(AMap.GeometryUtil.distance(p1, p2)) : 0;
+      if (dist > 0) {
+        const walkMin = Math.round(dist / 80);
+        walkInfo = `
+          <div style="display:flex;align-items:center;gap:6px;color:#999;font-size:11px;margin:6px 0;">
+            <span style="color:${color};">━</span>
+            步行 ${walkMin} 分钟 · ${dist}m
+            <span style="color:${color};">━</span>
+          </div>`;
+      }
+    }
+    spotCards.push(`
+      ${walkInfo}
+      <div style="display:flex;gap:12px;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="width:32px;height:32px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.15);flex-shrink:0;">${globalIdx}</div>
+          ${i < day.spots.length - 1 ? `<div style="width:2px;flex:1;background:${color}30;margin-top:4px;"></div>` : ''}
+        </div>
+        <div style="flex:1;padding-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:6px;"><div style="font-weight:600;font-size:14px;color:#333;">${spot.name}</div>${spot.confidence !== undefined ? (spot.confidence >= 0.8 ? "<span style=\"font-size:11px;color:#2e7d32;background:#e8f5e9;padding:1px 6px;border-radius:10px;\">高置信</span>" : spot.confidence >= 0.5 ? "<span style=\"font-size:11px;color:#f57f17;background:#fff8e1;padding:1px 6px;border-radius:10px;\">待确认</span>" : "<span style=\"font-size:11px;color:#c62828;background:#ffebee;padding:1px 6px;border-radius:10px;\">需核实</span>") : ""}</div>
+          ${spot.address ? `<div style="color:#999;font-size:12px;margin-top:2px;">📍 ${spot.address}</div>` : ''}
+        </div>
+      </div>`);
+  });
+
+  return `
+    <div style="background:#fff;border-radius:16px;padding:16px 20px;box-shadow:0 2px 12px rgba(0,0,0,0.06);border:1px solid #f0f0f0;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:2px dashed ${color}40;">
+        <span style="background:${color};color:#fff;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600;">Day ${day.day}</span>
+        <span style="color:#666;font-size:13px;">共 ${day.spots.length} 个景点</span>
+      </div>
+      ${spotCards.join('')}
+    </div>`;
+}
+
+async function startTravelPlan() {
+
+  const button =
+    document.getElementById("start-plan-btn");
+
+  const messageInput =
+    document.getElementById("travel-message");
+
+  const loading =
+    document.getElementById("travel-loading");
+
+  const result =
+    document.getElementById("travel-result");
+
+  const errorBox =
+    document.getElementById("travel-error");
+
+  const planContent =
+    document.getElementById("travel-plan-content");
+
+  // ============================================================
+  // 读取 Flask/Jinja 传递的数据
+  // ============================================================
+
+  if (!travelData) {
+    // 如果 IIFE 还没执行完（极少见），这里再读一次
+    const travelDataElement = document.getElementById("travel-data");
+    if (travelDataElement) {
+      travelData = JSON.parse(travelDataElement.textContent);
+    }
+  }
+
+  // ============================================================
+  // 获取用户额外需求
+  // ============================================================
+
+  const message =
+    messageInput.value.trim();
+
+  // ============================================================
+  // 重置页面状态
+  // ============================================================
+
+  errorBox.style.display = "none";
+  errorBox.textContent = "";
+
+  result.style.display = "none";
+  planContent.textContent = "";
+
+  loading.style.display = "block";
+
+  button.disabled = true;
+
+  button.textContent =
+    "🐸 旅蛙规划中……";
+
+  // ============================================================
+  // 构造请求
+  // ============================================================
+
+  const requestData = {
+
+    session_key:
+      travelData.session_key + '_' + Date.now(),  // 每次用新 session_key，避免历史污染
+
+    destination:
+      travelData.destination,
+
+    preference:
+      travelData.preference,
+
+    // ⭐ 新增：推荐系统候选景点
+    spots:
+      travelData.spots || [],
+
+    message:
+      message
+
+  };
+
+  console.log(
+    "[TravelAgent] 请求 NanoClaw:",
+    requestData
+  );
+
+  // ============================================================
+  // 调用 NanoClaw
+  // ============================================================
+
+  try {
+
+    const response = await fetch(
+      "http://127.0.0.1:8081/api/travel/plan",
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify(
+          requestData
+        )
+      }
+    );
+
+    // ==========================================================
+    // 获取返回数据
+    // ==========================================================
+
+    const data =
+      await response.json();
+
+    console.log(
+      "[TravelAgent] NanoClaw 返回:",
+      data
+    );
+
+    // ==========================================================
+    // 判断请求是否成功
+    // ==========================================================
+
+    if (
+      !response.ok ||
+      !data.success
+    ) {
+
+      throw new Error(
+        data.message ||
+        `旅行规划失败（HTTP ${response.status}）`
+      );
+
+    }
+
+    // ==========================================================
+    // 显示旅行攻略（Markdown 渲染）
+    // ==========================================================
+
+    const planText = data.plan || "旅蛙没有返回旅行攻略。";
+    console.log('[DEBUG] planText length:', planText.length);
+    console.log('[DEBUG] planText preview:', planText.substring(0, 200));
+
+    // 1. 提取每天景点（用于生成"今日景点"清单行 + 地图打点）
+    const days = buildDayList(travelData.spots, travelData.destination, planText);
+    // 2. 在每天标题下方注入"今日景点：A、B、C"行（AI 已有则不重复）
+    const planTextWithList = injectSpotListLines(planText, days);
+
+    // 先显示容器（AMap 要求容器有实际尺寸才能初始化）
+    result.style.display = "block";
+
+    // Markdown 渲染（带 marked 可用性检查）
+    if (typeof marked === 'undefined') {
+      console.warn('[DEBUG] marked is undefined, using textContent');
+      planContent.textContent = planTextWithList; // 降级：纯文本显示
+    } else {
+      try {
+        planContent.innerHTML = marked.parse(planTextWithList);
+        console.log('[DEBUG] marked.parse OK');
+      } catch (e) {
+        console.error('[DEBUG] marked.parse ERROR:', e);
+        planContent.textContent = planTextWithList;
+      }
+    }
+
+    // 渲染行程路线图（用注入清单后的文本，buildDayList 以"今日景点"行为权威源）
+    await renderRouteMaps(planTextWithList, days);
+
+    // 滚动到攻略
+    setTimeout(function () {
+      result.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+
+  } catch (error) {
+
+    console.error(
+      "[TravelAgent] 请求失败:",
+      error
+    );
+
+    // Agent 不可用时，也用数据库景点生成路线图
+    result.style.display = "block";
+    errorBox.textContent =
+      "🐸 旅蛙暂时无法完成规划："
+      + error.message + "（地图仍可用数据库景点展示）";
+    errorBox.style.display = "block";
+
+    // 即使没有 AI 攻略，也用 DB 景点渲染路线图
+    const fallbackPlan = (travelData.spots || []).map(s => s.name).join('\n');
+    await renderRouteMaps(fallbackPlan);
+
+    setTimeout(function () {
+      result.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 300);
+
+  } finally {
+
+    // ==========================================================
+    // 恢复按钮
+    // ==========================================================
+
+    loading.style.display =
+      "none";
+
+    button.disabled =
+      false;
+
+    button.textContent =
+      "🐸 开始规划旅行 →";
+
+  }
+
+}
+
+</script>
+
+{% endblock %}

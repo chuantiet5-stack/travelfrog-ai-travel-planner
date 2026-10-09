@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="only light">
+  <meta name="description" content="四季个性化旅游景点推荐系统">
+  <title>{% block title %}四季旅游推荐系统{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block style %}{% endblock %}
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="{{ url_for('index') }}"><span>蛙</span><strong>旅蛙 · 智能旅行助手</strong></a>
+    <button class="menu-btn" type="button" aria-label="打开导航" aria-expanded="false">☰</button>
+    <nav>
+      <a href="{{ url_for('index') }}">首页</a>
+      <a href="{{ url_for('recommend') }}">探索目的地</a>
+      {% if current_user %}
+        {% if current_user.role == "admin" %}
+          <a class="admin-nav" href="{{ url_for('admin') }}"><span>管</span>管理后台</a>
+        {% else %}
+          <a class="user-nav" href="{{ url_for('profile') }}"><span>{{ current_user.username[:1] }}</span>个人中心</a>
+        {% endif %}
+        <a href="{{ url_for('logout') }}">退出</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">登录</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-wrap">
+        {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main>{% block content %}{% endblock %}</main>
+  <footer>
+    <strong>旅蛙 · 智能旅行助手</strong>
+    <span>从目的地选择，到旅程规划，让每一次出发都更合心意。</span>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}首页 · 旅游推荐规划Agent系统{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-overlay"></div>
+  <div class="hero-copy">
+    <p class="eyebrow">TRAVEL COMPANION · 2026</p>
+    <h1>智能旅行助手，<br>陪你去<span>想去的地方</span></h1>
+    <p>不知道去哪，就让我们替你寻找答案；已经有目的地，就把剩下的旅程交给旅蛙。</p>
+  </div>
+  <div class="hero-seal">旅途<br>有伴</div>
+</section>
+
+<section class="ability-bar">
+  <div><strong>1W+</strong><span>内置景点</span></div>
+  <div><strong>6</strong><span>匹配维度</span></div>
+  <div><strong>100</strong><span>满分评分</span></div>
+  <div><strong>4</strong><span>四季场景</span></div>
+</section>
+
+<section class="page-section">
+  <div class="section-head">
+    <div>
+      <small>CHOOSE YOUR JOURNEY</small>
+      <h2>这一次，想去哪里？</h2>
+    </div>
+    <p>不妨从一份心意出发，去遇见一处刚刚好的风景。</p>
+  </div>
+  <div class="choice-grid">
+    <article class="choice-card">
+      <small>01 · 还未想好目的地</small>
+      <h3>我还没想好，去哪里</h3>
+      <p>有时候，旅行不一定要先有目的地。告诉旅蛙你喜欢的风景，它会替你寻一座合心意的城。</p>
+      <a class="primary-btn" href="{{ url_for('recommend') }}">替我寻一处风景 →</a>
+    </article>
+    <article class="choice-card">
+      <small>02 · 心里已有一个地方</small>
+      <h3>我已经想好，要去哪里</h3>
+      <p>心里已经藏着一个想去的地方？告诉旅蛙你的时间与心愿，剩下的旅程，就慢慢交给它。</p>
+      <a class="primary-btn" href="{{ url_for('travel_agent_direct') }}">让旅蛙伴我出发 →</a>
+    </article>
+  </div>
+</section>
+
+<section class="page-section">
+  <div class="section-head"><div><small>TRAVEL BY SEASON</small><h2>四时有景，风物各异</h2></div><p>春有花事，夏有清风，秋赏山色，冬寻雪意。总有一季风景，值得此刻出发。</p></div>
+  <div class="season-grid">
+    {% set cards = [
+      ('春季','花事正好 · 江南烟雨 · 小桥流水','photo1.jpg'),
+      ('夏季','清风山水 · 海滨漫游 · 寻一处清凉','photo2.png'),
+      ('秋季','秋色正浓 · 古韵人文 · 赴一场摄影之约','photo3.png'),
+      ('冬季','银装素裹 · 温泉暖意 · 寻雪看人间','photo4.png')
+    ] %}
+    {% for season, tags, image in cards %}
+      <a class="season-card" href="{{ url_for('recommend', season=season) }}">
+        <img src="{{ url_for('assets', filename=image) }}" alt="{{ season }}旅行风景">
+        <div><small>0{{ loop.index }} · {{ ['SPRING','SUMMER','AUTUMN','WINTER'][loop.index0] }}</small><h3>{{ season }}</h3><p>{{ tags }}</p></div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="dark-feature">
+  <div><small>HOW IT WORKS</small><h2>从一份心意，到一场旅程</h2></div>
+  <ol>
+    <li><span>01</span><strong>先听听你的想法</strong><p>从季节、预算与旅行风格里，慢慢了解你</p></li>
+    <li><span>02</span><strong>替你寻一处合意的地方</strong><p>从城市到景点，为你寻一处更合心意的风景</p></li>
+    <li><span>03</span><strong>把旅程交给旅蛙</strong><p>结合天气、景点与实时信息，把一路的安排交给旅蛙</p></li>
+  </ol>
+</section>
+
+<section class="page-section">
+  <div class="section-head"><div><small>DESTINATION PICKS</small><h2>总有一处风景，在等你出发</h2></div><a class="text-link" href="{{ url_for('recommend') }}">总有一处风景，在等你出发 →</a></div>
+  <div class="mini-grid">
+    {% for spot in spots %}
+      <a class="mini-card" href="{{ url_for('detail', spot_id=spot.id) }}">
+        <span>{{ "%02d"|format(loop.index) }}</span><div><h3>{{ spot.name }}</h3><p>{{ spot.city }} · {{ spot.season }}</p></div>
+      </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

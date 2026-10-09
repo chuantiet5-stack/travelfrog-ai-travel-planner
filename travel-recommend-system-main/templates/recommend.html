@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}偏好选择 · 四季旅游推荐系统{% endblock %}
+
+{% block content %}
+<section class="sub-hero">
+  <small>PERSONAL PREFERENCE</small>
+  <h1>告诉我们，你想怎样出发</h1>
+  <p>完成六项选择，并设置每项偏好的重要程度，系统将进行动态权重匹配。</p>
+</section>
+
+<section class="recommend-layout">
+
+  <aside>
+    <span>推荐流程</span>
+    <h2>六维偏好画像</h2>
+
+    <p>
+      基础权重为季节、风格、预算、天数、人群。
+	  出发地将用于后续计算交通便利度。
+      你可以通过设置重要程度，让系统动态调整各项权重。
+    </p>
+
+    <div class="weight-list">
+      <b>季节匹配 <i>30</i></b>
+      <b>风格匹配 <i>30</i></b>
+      <b>预算匹配 <i>20</i></b>
+      <b>天数匹配 <i>10</i></b>
+      <b>人群匹配 <i>10</i></b>
+    </div>
+
+    <p style="margin-top: 18px;">
+      <small>
+        重要程度：1 = 不太重要，3 = 一般，5 = 非常重要
+      </small>
+    </p>
+  </aside>
+
+
+  <form class="preference-form" method="post" onsubmit="return checkOrigin()">
+
+	
+    <!-- 出发地 -->
+    <fieldset>
+
+      <legend>
+        出发地
+        <small>ORIGIN</small>
+      </legend>
+
+      <div style="margin-top: 6px;">
+
+        <input
+          type="text"
+          name="origin"
+          value="{{ selected.get('origin', '') }}"
+          placeholder="请输入你的出发城市，例如：广州"
+          style="
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            box-sizing: border-box;
+          "
+        >
+
+      </div>
+
+      <div style="margin-top: 14px;">
+
+        <label
+          for="origin_priority"
+          style="display: block; margin-bottom: 6px;"
+        >
+          交通便利度重要程度
+        </label>
+
+        <select
+          id="origin_priority"
+          name="priority_origin"
+          style="padding: 8px 12px; border-radius: 6px;"
+        >
+
+          {% for level in range(1, 6) %}
+
+            <option
+              value="{{ level }}"
+              {% if selected.get('priority', {}).get('origin', 3)|int == level %}
+              selected
+              {% endif %}
+            >
+              {{ level }}
+              {% if level == 1 %}
+                - 不太重要
+              {% elif level == 2 %}
+                - 较不重要
+              {% elif level == 3 %}
+                - 一般
+              {% elif level == 4 %}
+                - 比较重要
+              {% elif level == 5 %}
+                - 非常重要
+              {% endif %}
+            </option>
+
+          {% endfor %}
+
+        </select>
+
+      </div>
+
+    </fieldset>
+
+    {% set fields = [
+      ('season','出游季节','SEASON',seasons),
+      ('style_type','景点风格','STYLE',styles),
+      ('budget_level','预算范围','BUDGET',budgets),
+      ('play_days','出游天数','DURATION',days),
+      ('people_type','出游人群','COMPANION',people)
+    ] %}
+
+
+    {% for name, label, english, options in fields %}
+
+      <fieldset>
+
+        <legend>
+          {{ label }}
+          <small>{{ english }}</small>
+        </legend>
+
+
+        <!-- 原来的偏好选择：style_type 为多选（最多 4 个），其余单选 -->
+        <div class="choice-row">
+
+          {% for option in options %}
+
+            {% if name == 'style_type' %}
+            <label>
+              <input
+                type="checkbox"
+                name="{{ name }}"
+                value="{{ option }}"
+                class="style-checkbox"
+                {% if option in (selected.get('style_type', '') or '').split('、') or option in (selected.get('style_type', '') or '').split(',') %}
+                checked
+                {% endif %}
+              >
+              <span>{{ option }}</span>
+            </label>
+            {% else %}
+            <label>
+              <input
+                type="radio"
+                name="{{ name }}"
+                value="{{ option }}"
+                {% if selected.get(name, request.args.get(name, options[0])) == option %}
+                checked
+                {% endif %}
+              >
+              <span>{{ option }}</span>
+            </label>
+            {% endif %}
+
+          {% endfor %}
+
+        </div>
+
+        {% if name == 'style_type' %}
+        <small style="display:block;margin-top:8px;color:#a08650;">可多选 1–4 个风格，多选后按命中比例计分</small>
+        {% endif %}
+
+
+        <!-- 新增：偏好重要程度 -->
+        <div style="margin-top: 14px;">
+
+          <label
+            for="{{ name }}_priority"
+            style="display: block; margin-bottom: 6px;"
+          >
+            重要程度
+          </label>
+
+          <select
+            id="{{ name }}_priority"
+            name="priority_{{ name }}"
+            style="padding: 8px 12px; border-radius: 6px;"
+          >
+
+            {% for level in range(1, 6) %}
+
+              <option
+                value="{{ level }}"
+                {% if selected.get('priority', {}).get(name, 3)|int == level %}
+                selected
+                {% endif %}
+              >
+                {{ level }}
+                {% if level == 1 %}
+                  - 不太重要
+                {% elif level == 2 %}
+                  - 较不重要
+                {% elif level == 3 %}
+                  - 一般
+                {% elif level == 4 %}
+                  - 比较重要
+                {% elif level == 5 %}
+                  - 非常重要
+                {% endif %}
+              </option>
+
+            {% endfor %}
+
+          </select>
+
+        </div>
+
+      </fieldset>
+
+    {% endfor %}
+
+
+    <button class="primary-btn wide" type="submit">
+      生成推荐结果 <b>→</b>
+    </button>
+
+  </form>
+
+</section>
+
+
+<script>
+
+// 景点风格多选：最多 4 个
+const MAX_STYLES = 4;
+
+document.querySelectorAll('.style-checkbox').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+        const checked = document.querySelectorAll('.style-checkbox:checked');
+        if (checked.length > MAX_STYLES) {
+            this.checked = false;
+            alert('🐸 景点风格最多选择 ' + MAX_STYLES + ' 个');
+        }
+    });
+});
+
+function checkOrigin(){
+
+    // 景点风格至少选择 1 个
+    const styleCount = document.querySelectorAll('.style-checkbox:checked').length;
+    if (styleCount === 0) {
+        alert('🐸 请至少选择 1 个景点风格');
+        return false;
+    }
+
+    // 获取出发城市输入框
+    let origin = document.querySelector(
+        'input[name="origin"]'
+    ).value.trim();
+
+
+    // 判断是否为空
+    if(origin === ""){
+
+        alert("🐸 请填写你的出发城市");
+
+        return false;
+
+    }
+
+
+    return true;
+
+}
+
+</script>
+
+
+{% endblock %}

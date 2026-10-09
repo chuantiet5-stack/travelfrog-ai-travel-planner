@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}城市推荐 · 四季旅游推荐系统{% endblock %}
+
+{% block content %}
+
+<section class="sub-hero">
+
+  <small>CITY RECOMMENDATION</small>
+
+  <h1>根据你的偏好，推荐这些城市</h1>
+
+  <p>
+    系统先根据你的出游偏好筛选目的地城市，
+    再进入城市内景点推荐。
+  </p>
+
+</section>
+
+
+<section class="recommend-layout">
+
+  <aside>
+
+    <span>第一阶段</span>
+
+    <h2>目的地城市</h2>
+
+    <p>
+      城市匹配综合考虑景点最高匹配度、
+      平均匹配度和匹配覆盖率。
+    </p>
+
+    <div class="weight-list">
+
+      <b>
+        最高景点匹配
+        <i>50%</i>
+      </b>
+
+      <b>
+        平均景点匹配
+        <i>30%</i>
+      </b>
+
+      <b>
+        匹配覆盖率
+        <i>20%</i>
+      </b>
+
+    </div>
+
+  </aside>
+
+
+  <section class="results-grid">
+
+    {% for city in cities %}
+
+    <article class="recommend-card">
+
+      <div class="score-box">
+
+        <small>TOP {{ loop.index }}</small>
+
+        <strong>
+          {{ "%.2f"|format(city.score) }}
+        </strong>
+
+        <span>城市匹配度</span>
+
+      </div>
+
+
+      <div class="card-body">
+
+        <h2>
+          {{ city.city }}
+        </h2>
+
+        <p class="muted">
+          {{ city.spots|length }} 个相关景点
+        </p>
+
+
+        <div class="tag-row">
+
+          <span>
+            最高匹配 {{ "%.2f"|format(city.max_score) }}
+          </span>
+
+          <span>
+            平均匹配 {{ "%.2f"|format(city.avg_score) }}
+          </span>
+
+          <span>
+            覆盖率 {{ "%.0f"|format(city.coverage) }}%
+          </span>
+
+        </div>
+
+
+        <div class="recommend-reason">
+
+          <strong>为什么推荐</strong>
+
+          <p>
+            {{ city.city }}
+            的景点整体与你当前选择的
+            {{ preference.style_type }}
+            旅行风格具有较高匹配度，
+            城市综合匹配度为
+            {{ "%.2f"|format(city.score) }}%。
+          </p>
+
+        </div>
+
+
+        <a
+          class="primary-btn wide"
+          href="{{ url_for(
+              'city_spots',
+              city=city.city,
+              preference_id=preference_id
+          ) }}"
+        >
+          查看 {{ city.city }} 景点 →
+        </a>
+
+      </div>
+
+    </article>
+
+    {% endfor %}
+
+  </section>
+
+</section>
+
+{% endblock %}

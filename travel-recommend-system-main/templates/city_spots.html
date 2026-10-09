@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}{{ city }}景点 · 四季旅游推荐系统{% endblock %}
+
+{% block content %}
+
+<section class="sub-hero">
+
+  <small>DESTINATION SPOTS</small>
+
+  <h1>{{ city }} · 适合你的景点</h1>
+
+  <p>
+    根据你的旅游偏好，
+    对 {{ city }} 景点进行进一步匹配和排序。
+  </p>
+
+</section>
+
+
+<section class="recommend-layout">
+
+  <!-- 左侧：当前旅行偏好 -->
+
+  <aside>
+
+    <span>第二阶段</span>
+
+    <h2>{{ city }} 景点推荐</h2>
+
+    <p>
+      已进入你选择的目的地城市，
+      系统将只分析当前城市中的景点。
+    </p>
+
+    <div class="weight-list">
+
+      <b>
+        出游季节
+        <i>{{ preference.season }}</i>
+      </b>
+
+      <b>
+        旅行风格
+        <i>{{ preference.style_type }}</i>
+      </b>
+
+      <b>
+        预算
+        <i>{{ preference.budget_level }}</i>
+      </b>
+
+      <b>
+        出游天数
+        <i>{{ preference.play_days }}</i>
+      </b>
+
+      <b>
+        出游人群
+        <i>{{ preference.people_type }}</i>
+      </b>
+
+    </div>
+
+  </aside>
+
+
+  <!-- 右侧：景点推荐 -->
+
+  <section class="results-grid">
+
+    {% for item in results %}
+
+    <article class="recommend-card">
+
+      <!-- 匹配分数 -->
+
+      <div class="score-box">
+
+        <small>
+          TOP {{ loop.index }}
+        </small>
+
+        <strong>
+          {{ "%.2f"|format(item.score) }}
+        </strong>
+
+        <span>
+          景点匹配度
+        </span>
+
+      </div>
+
+
+      <div class="card-body">
+
+        <!-- 景点名称 -->
+
+        <div class="card-title-row">
+
+          <h2>
+            {{ item.spot["name"] }}
+          </h2>
+
+          <span class="muted">
+            {{ item.spot["province"] }}
+            ·
+            {{ item.spot["city"] }}
+          </span>
+
+        </div>
+
+
+        <!-- 景点风格标签 -->
+
+        <div class="tag-row">
+
+          {% for tag in item.spot["style_type"].replace("，", ",").split(",") %}
+
+            {% if tag.strip() %}
+
+              <span>
+                {{ tag.strip() }}
+              </span>
+
+            {% endif %}
+
+          {% endfor %}
+
+        </div>
+
+
+        <!-- 景点基本信息 -->
+
+        <div class="spot-info">
+
+          <p>
+            <span>预算</span>
+            {{ item.spot["budget_level"] }}
+          </p>
+
+          <p>
+            <span>建议天数</span>
+            {{ item.spot["play_days"] }}
+          </p>
+
+          <p>
+            <span>适合人群</span>
+            {{ item.spot["suitable_people"] }}
+          </p>
+
+        </div>
+
+
+        <!-- 推荐理由 -->
+
+        <div class="recommend-reason">
+
+          <strong>
+            推荐理由
+          </strong>
+
+          <p>
+            {{ item.reason }}
+          </p>
+
+        </div>
+
+
+        <!-- 操作 -->
+
+        <div class="card-actions">
+
+          <a
+            class="primary-btn"
+            href="{{ url_for(
+                'detail',
+                spot_id=item.spot['id']
+            ) }}"
+          >
+            查看详情
+          </a>
+
+
+          {% if g.user %}
+
+            {% if item.spot["id"] in favorite_ids %}
+
+              <span class="secondary-btn">
+                已收藏
+              </span>
+
+            {% else %}
+
+              <form
+                method="post"
+                action="{{ url_for(
+                    'toggle_favorite',
+                    spot_id=item.spot['id']
+                ) }}"
+              >
+
+                <button
+                  class="secondary-btn"
+                  type="submit"
+                >
+                  收藏
+                </button>
+
+              </form>
+
+            {% endif %}
+
+          {% endif %}
+
+        </div>
+
+      </div>
+
+    </article>
+
+    {% else %}
+
+    <!-- 没有景点 -->
+
+    <article class="recommend-card">
+
+      <div class="card-body">
+
+        <h2>
+          暂无符合条件的景点
+        </h2>
+
+        <p class="muted">
+          当前城市暂时没有可推荐的景点数据。
+        </p>
+
+        <a
+          class="primary-btn"
+          href="{{ url_for('recommend') }}"
+        >
+          重新选择偏好
+        </a>
+
+      </div>
+
+    </article>
+
+    {% endfor %}
+
+  </section>
+
+</section>
+
+
+<!-- 下一阶段：旅蛙（吸附在视口底部） -->
+
+<section class="agent-dock">
+
+  <div class="agent-dock-text">
+    <small>TRAVEL AGENT</small>
+
+    <h2>
+      已经确定 {{ city }}？
+    </h2>
+
+    <p>
+      接下来可以让旅蛙根据你的出游时间、
+      预算、兴趣和旅行节奏，
+      帮你生成完整的个性化旅行攻略。
+    </p>
+  </div>
+
+<a
+  class="primary-btn"
+  href="{{ url_for('travel_agent', city=city) }}"
+>
+  🐸 让旅蛙帮我规划 →
+</a>
+
+</section>
+
+{% endblock %}

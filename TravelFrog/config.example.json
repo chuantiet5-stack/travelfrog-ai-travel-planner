@@ -1,0 +1,54 @@
+{
+  "api_key": "",
+  "base_url": "https://api.siliconflow.cn/v1",
+  "models": {
+    "main": "Qwen/Qwen3.5-35B-A3B",
+    "subagent": "Qwen/Qwen3-14B",
+    "cheap": "Qwen/Qwen3.5-4B"
+  },
+  "workspace": ".",
+  "max_iterations": 32,
+  "identity_file": "identity.md",
+  "feishu": {
+    "app_id": "",
+    "app_secret": ""
+  },
+  "qq": {
+    "app_id": "",
+    "app_secret": ""
+  },
+  "web": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8081
+  },
+  "amap": {
+    "api_key": ""
+  },
+  "seniverse": {
+    "api_key": ""
+  },
+  "mcp_servers": {
+    "amap": {
+      "command": "python",
+      "args": [
+        "mcp_servers/amap_server.py"
+      ],
+      "description": "高德地图服务（景点搜索、天气查询）"
+    },
+    "seniverse": {
+      "command": "python",
+      "args": [
+        "mcp_servers/seniverse_server.py"
+      ],
+      "description": "心知天气服务（天气预报）"
+    },
+    "baidutupian": {
+      "command": "python",
+      "args": [
+        "mcp_servers/baidutupian_server.py"
+      ],
+      "description": "百度图片服务（景点图片，文件名沿用 baidutupian_server.py，内容已是百度图片源）"
+    }
+  }
+}

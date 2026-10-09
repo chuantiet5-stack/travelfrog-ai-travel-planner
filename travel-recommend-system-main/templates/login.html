@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ "注册账号" if mode == "register" else "用户登录" }} · 四季旅游推荐系统{% endblock %}
+{% block content %}
+<section class="auth-page">
+  <div class="auth-art">
+    <span class="auth-seal">山河<br>有信</span>
+    <div><small>PERSONAL TRAVEL SPACE</small><h1>把喜欢的风景，<br>留在自己的旅程里</h1><p>登录后可以保存收藏、查看浏览记录并发表景点评论。</p></div>
+  </div>
+  <div class="auth-panel">
+    <div class="auth-box">
+      <span class="label">{{ "CREATE ACCOUNT" if mode == "register" else "WELCOME BACK" }}</span>
+      <h2>{{ "创建旅行账号" if mode == "register" else "登录个人中心" }}</h2>
+      <p>{{ "注册后自动登录，无需填写真实姓名。" if mode == "register" else "继续查看你的收藏、足迹和评论。" }}</p>
+      <form method="post">
+        <label>用户名<input name="username" minlength="2" maxlength="20" required autocomplete="username" placeholder="请输入用户名"></label>
+        <label>密码<input name="password" type="password" minlength="6" required autocomplete="{{ 'new-password' if mode == 'register' else 'current-password' }}" placeholder="至少 6 位"></label>
+        {% if mode == "register" %}
+          <label>确认密码<input name="confirm_password" type="password" minlength="6" required autocomplete="new-password" placeholder="再次输入密码"></label>
+        {% endif %}
+        <button class="primary-btn wide" type="submit">{{ "注册并进入个人中心" if mode == "register" else "登录" }}</button>
+      </form>
+      {% if mode == "register" %}
+        <p class="auth-switch">已有账号？<a href="{{ url_for('login') }}">直接登录</a></p>
+      {% else %}
+        <p class="auth-switch">还没有账号？<a href="{{ url_for('register') }}">免费注册</a></p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

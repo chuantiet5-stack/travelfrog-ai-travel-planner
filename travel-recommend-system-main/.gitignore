@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+travel.db
+*.db-journal
+
+# 早期单页原型，正式系统使用 templates/ 与 static/
+tourism.html
+tourism.css
+tourism.js

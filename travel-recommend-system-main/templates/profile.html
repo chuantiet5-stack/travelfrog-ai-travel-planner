@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}个人中心 · 四季旅游推荐系统{% endblock %}
+{% block content %}
+<section class="profile-hero">
+  <div class="profile-avatar">{{ current_user.username[:1] }}</div>
+  <div><small>PERSONAL CENTER</small><h1>{{ current_user.username }}，欢迎回来</h1><p>注册于 {{ current_user.create_time[:10] }}</p></div>
+  <a href="{{ url_for('logout') }}">退出登录</a>
+</section>
+
+<section class="profile-stats">
+  <div><strong>{{ favorites|length }}</strong><span>收藏景点</span></div>
+  <div><strong>{{ histories|length }}</strong><span>浏览足迹</span></div>
+  <div><strong>{{ comments|length }}</strong><span>我的评论</span></div>
+</section>
+
+<section class="profile-content">
+  <div class="profile-section">
+    <div class="profile-section-head"><div><span>MY FAVORITES</span><h2>我的收藏</h2></div><a href="{{ url_for('recommend') }}">发现更多景点 →</a></div>
+    {% if favorites %}
+      <div class="profile-card-grid">
+        {% for spot in favorites %}
+          <article class="profile-spot-card">
+            <div><small>{{ spot.city }} · {{ spot.season }}</small><h3>{{ spot.name }}</h3><p>{{ spot.introduction }}</p></div>
+            <div class="profile-card-actions">
+              <a href="{{ url_for('detail', spot_id=spot.id) }}">查看详情</a>
+              <form action="{{ url_for('toggle_favorite', spot_id=spot.id) }}" method="post"><input type="hidden" name="next" value="{{ url_for('profile') }}"><button type="submit">取消收藏</button></form>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="profile-empty">还没有收藏景点，去推荐页面寻找心仪目的地吧。</div>
+    {% endif %}
+  </div>
+
+  <div class="profile-columns">
+    <section class="profile-section">
+      <div class="profile-section-head"><div><span>BROWSING HISTORY</span><h2>浏览记录</h2></div>
+        {% if histories %}<form action="{{ url_for('clear_history') }}" method="post"><button class="plain-danger" type="submit">清空记录</button></form>{% endif %}
+      </div>
+      {% if histories %}
+        <div class="history-list">
+          {% for item in histories %}
+            <a href="{{ url_for('detail', spot_id=item.id) }}"><span>{{ "%02d"|format(loop.index) }}</span><div><strong>{{ item.name }}</strong><small>{{ item.city }} · 浏览 {{ item.view_count }} 次</small></div><time>{{ item.view_time[:16] }}</time></a>
+          {% endfor %}
+        </div>
+      {% else %}<div class="profile-empty compact">暂时没有浏览记录。</div>{% endif %}
+    </section>
+
+    <section class="profile-section">
+      <div class="profile-section-head"><div><span>MY COMMENTS</span><h2>我的评论</h2></div></div>
+      {% if comments %}
+        <div class="my-comment-list">
+          {% for comment in comments %}
+            <article><div><a href="{{ url_for('detail', spot_id=comment.spot_id) }}">{{ comment.spot_name }}</a><time>{{ comment.create_time[:16] }}</time></div><p>{{ comment.content }}</p><form action="{{ url_for('delete_comment', comment_id=comment.id) }}" method="post"><button type="submit">删除</button></form></article>
+          {% endfor %}
+        </div>
+      {% else %}<div class="profile-empty compact">还没有发表过评论。</div>{% endif %}
+    </section>
+  </div>
+</section>
+{% endblock %}

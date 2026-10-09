@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}推荐结果 · 四季旅游推荐系统{% endblock %}
+{% block content %}
+<section class="sub-hero result-hero">
+  <small>SMART MATCHING RESULT</small>
+  <h1>为你甄选的目的地</h1>
+  <p>{{ preference.season }} · {{ preference.style_type }} · {{ preference.budget_level }} · {{ preference.play_days }} · {{ preference.people_type }}</p>
+</section>
+
+<section class="result-section">
+  <div class="result-toolbar"><p>共分析 {{ results|length }} 个景点，以下结果已按匹配度从高到低排序。</p><a href="{{ url_for('recommend') }}">重新选择偏好</a></div>
+  <div class="result-grid">
+    {% for item in results %}
+      <article class="result-card">
+        <div class="result-cover season-{{ item.spot.season[:1] }}">
+          <span class="rank">TOP {{ loop.index }}</span>
+          <strong>{{ item.score }}<small>%</small></strong>
+        </div>
+        <div class="result-body">
+          <div class="result-title"><h2>{{ item.spot.name }}</h2><span>{{ item.spot.province }} · {{ item.spot.city }}</span></div>
+          <div class="tag-list">
+            {% for tag in split_tags(item.spot.season) %}<i>{{ tag }}</i>{% endfor %}
+            {% for tag in split_tags(item.spot.style_type) %}<i>{{ tag }}</i>{% endfor %}
+          </div>
+          <dl>
+            <div><dt>预算</dt><dd>{{ item.spot.budget_level }}</dd></div>
+            <div><dt>建议天数</dt><dd>{{ item.spot.play_days }}</dd></div>
+            <div><dt>适合人群</dt><dd>{{ item.spot.suitable_people }}</dd></div>
+          </dl>
+          <p class="recommend-reason"><b>推荐理由</b>{{ item.reason }}</p>
+          <div class="card-actions">
+            <a href="{{ url_for('detail', spot_id=item.spot.id, preference_id=preference_id) }}">查看详情</a>
+            {% if current_user %}
+              <form action="{{ url_for('toggle_favorite', spot_id=item.spot.id) }}" method="post">
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button class="favorite-btn {{ 'saved' if item.spot.id in favorite_ids }}" type="submit">{{ "已收藏" if item.spot.id in favorite_ids else "收藏" }}</button>
+              </form>
+            {% else %}
+              <a href="{{ url_for('login', next=request.path) }}">登录收藏</a>
+            {% endif %}
+          </div>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

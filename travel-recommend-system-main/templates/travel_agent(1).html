@@ -7,7 +7,7 @@
   <!-- Markdown 渲染（本地文件，避免 CDN 问题） -->
   <script src="{{ url_for('static', filename='marked.min.js') }}"></script>
   <!-- 高德地图 JS SDK + 异步加载所有插件 -->
-  <script src="https://webapi.amap.com/maps?v=2.0&key=fc27a0f78a84236700aaee1a2ae905f2"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key={{ config.get('AMAP_WEB_KEY', '') | urlencode }}"></script>
   <script>
     console.log('[DEBUG] marked loaded:', typeof marked !== 'undefined');
     // AMap 2.0 异步加载插件
@@ -1084,7 +1084,7 @@ function normalizeCity(city) {
 function geocodeCity(city) {
   // 高德 JS SDK 的 Geocoder 存在回调静默失败问题，改用 REST API
   const normalizedCity = normalizeCity(city);
-  const key = '';
+  const key = {{ config.get('AMAP_REST_KEY', '') | tojson }};
   const url = `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(normalizedCity)}&key=${key}&output=json`;
   return new Promise((resolve) => {
     fetch(url)
@@ -1118,7 +1118,7 @@ function geocodeCity(city) {
  * @returns {Promise<AMap.POI|null>}  返回兼容 POI 对象（含 name/address/location）或 null
  */
 function searchPOI(keyword, city) {
-  const key = '';
+  const key = {{ config.get('AMAP_REST_KEY', '') | tojson }};
   const normalizedCity = normalizeCity(city);
 
   // 相关性校验：高德对任意关键词都会返回"最接近"的商家（塑料厂/餐厅/资金中心等），

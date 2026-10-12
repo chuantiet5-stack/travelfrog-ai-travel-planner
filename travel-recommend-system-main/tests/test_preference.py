@@ -1,4 +1,5 @@
 from app import preference_from_form
+from werkzeug.datastructures import MultiDict
 
 
 form_data = {
@@ -19,7 +20,7 @@ form_data = {
 }
 
 
-pref = preference_from_form(form_data)
+pref = preference_from_form(MultiDict(form_data))
 
 print("用户偏好：")
 print(pref)

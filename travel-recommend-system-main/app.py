@@ -31,6 +31,8 @@ app = Flask(__name__)
 app.config.update(
     DATABASE=os.getenv("TRAVEL_DATABASE", str(DB_PATH)),
     SECRET_KEY=os.getenv("FLASK_SECRET_KEY", "course-design-demo-key"),
+    AMAP_WEB_KEY=os.getenv("AMAP_WEB_KEY", ""),
+    AMAP_REST_KEY=os.getenv("AMAP_REST_KEY", ""),
     # 模板修改后自动生效，无需重启服务（开发阶段方便调试）
     TEMPLATES_AUTO_RELOAD=True,
 )

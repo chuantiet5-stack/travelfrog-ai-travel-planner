@@ -1318,7 +1318,7 @@ async function geocodeCity(city) {
   // 每日路线图的 POI 请求风暴之后，个人 key 容易撞 QPS 限流，
   // 单次失败就落北京兜底会造成"青岛显示北京"的误导读图
   const normalizedCity = normalizeCity(city);
-  const key = '';
+  const key = {{ config.get('AMAP_REST_KEY', '') | tojson }};
   const url = `https://restapi.amap.com/v3/geocode/geo?address=${encodeURIComponent(normalizedCity)}&key=${key}&output=json`;
 
   function geocodeOnce() {
@@ -1368,7 +1368,7 @@ async function geocodeCity(city) {
  * @returns {Promise<AMap.POI|null>}  返回兼容 POI 对象（含 name/address/location）或 null
  */
 function searchPOI(keyword, city) {
-  const key = '';
+  const key = {{ config.get('AMAP_REST_KEY', '') | tojson }};
   const normalizedCity = normalizeCity(city);
 
   // 相关性校验：高德对任意关键词都会返回"最接近"的商家（塑料厂/餐厅/资金中心等），
@@ -2319,7 +2319,7 @@ async function startTravelPlan() {
 
 {% block scripts %}
   <!-- 高德地图 JS SDK + 异步加载所有插件 -->
-  <script src="https://webapi.amap.com/maps?v=2.0&key=fc27a0f78a84236700aaee1a2ae905f2"></script>
+  <script src="https://webapi.amap.com/maps?v=2.0&key={{ config.get('AMAP_WEB_KEY', '') | urlencode }}"></script>
   <script>
     // AMap 2.0 异步加载插件
     if (typeof AMap !== 'undefined') {

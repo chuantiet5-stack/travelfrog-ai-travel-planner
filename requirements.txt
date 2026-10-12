@@ -1,0 +1,2 @@
+-r apps/travel_agent/requirements.txt
+-r apps/travel_web/requirements.txt

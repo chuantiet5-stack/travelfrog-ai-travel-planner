@@ -14,7 +14,7 @@ TravelFrog 的 Web 应用，采用 Flask、SQLite 和 HTML/CSS/JavaScript。
 从仓库根目录执行：
 
 ```bash
-cd travel-recommend-system-main
+cd apps/travel_web
 python -m pip install -r requirements.txt
 python init_db.py
 python app.py
@@ -34,6 +34,6 @@ python app.py
 python -m unittest discover -s tests -v
 ```
 
-- [项目首页](../README.md)
-- [配置指南](../docs/configuration.md)
-- [开发与测试](../docs/development.md)
+- [项目首页](../../README.md)
+- [配置指南](../../docs/configuration.md)
+- [开发与测试](../../docs/development.md)

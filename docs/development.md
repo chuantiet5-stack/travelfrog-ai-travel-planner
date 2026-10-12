@@ -24,25 +24,25 @@ source .venv/bin/activate
 
 ## 依赖选择
 
-`travel-recommend-system-main/requirements.txt` 为景点网站依赖。`TravelFrog/requirements.txt` 来自原开发环境的完整依赖清单，包含较多扩展包；两个应用应使用各自的虚拟环境。
+`requirements.txt` 是根目录依赖入口，引用两个服务的依赖文件。Agent 依赖已按源码直接导入的包整理；原开发环境完整快照保存在 `requirements/legacy-agent-environment.txt`，仅供历史参考。两个服务也可使用各自的虚拟环境。
 
 ## 代码阅读入口
 
 | 路径 | 职责 |
 | --- | --- |
-| `TravelFrog/main.py` | 组装模型、工具、渠道和消息网关 |
-| `TravelFrog/agent/loop.py` | Agent 迭代与旅行状态管理 |
-| `TravelFrog/agent/tools/mcp_server.py` | MCP 客户端与工具注册 |
-| `TravelFrog/session/manager.py` | 会话与旅行状态持久化 |
-| `travel-recommend-system-main/recommendation/` | 候选筛选、偏好匹配与权重计算 |
-| `travel-recommend-system-main/app.py` | 网站路由、用户功能与管理后台 |
+| `apps/travel_agent/main.py` | 组装模型、工具、渠道和消息网关 |
+| `apps/travel_agent/agent/loop.py` | Agent 迭代与旅行状态管理 |
+| `apps/travel_agent/agent/tools/mcp_server.py` | MCP 客户端与工具注册 |
+| `apps/travel_agent/session/manager.py` | 会话与旅行状态持久化 |
+| `apps/travel_web/recommendation/` | 候选筛选、偏好匹配与权重计算 |
+| `apps/travel_web/app.py` | 网站路由、用户功能与管理后台 |
 
 ## 自动化测试
 
 在已安装网站依赖的环境中执行：
 
 ```bash
-cd travel-recommend-system-main
+cd apps/travel_web
 python -m unittest discover -s tests -v
 ```
 

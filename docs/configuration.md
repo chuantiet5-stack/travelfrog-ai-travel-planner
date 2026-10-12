@@ -2,7 +2,7 @@
 
 ## Agent 配置
 
-从 `TravelFrog/config.example.json` 创建同目录的 `config.json`。
+从 `apps/travel_agent/config.example.json` 创建同目录的 `config.json`。
 
 | 字段 | 说明 |
 | --- | --- |
@@ -20,7 +20,7 @@ MCP 示例使用 `python` 启动子进程。请在已激活的虚拟环境中运
 
 ## 景点网站环境变量
 
-在启动 `travel-recommend-system-main/app.py` 前设置：
+在启动 `apps/travel_web/app.py` 前设置：
 
 | 环境变量 | 用途 |
 | --- | --- |

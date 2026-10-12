@@ -1,0 +1,16 @@
+# Direct dependencies; versions retained from the original environment.
+openai==1.93.0
+fastapi==0.136.1
+uvicorn==0.46.0
+websockets==16.0
+httpx==0.28.1
+pydantic==2.13.4
+pillow==10.4.0
+qq-botpy==1.2.1
+lark-oapi==1.6.1
+mcp==1.27.0
+PyYAML==6.0.2
+
+# Optional web tools imported on demand.
+ddgs
+html2text
